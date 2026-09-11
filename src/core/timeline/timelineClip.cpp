@@ -10,6 +10,9 @@ QJsonObject serializeAnimProperty(const anim::AnimProperty &prop) {
   QJsonObject obj;
   obj["value"] = static_cast<double>(prop.staticValue());
   obj["isAnimated"] = prop.isAnimated();
+  obj["isMuted"] = prop.isMuted();
+  obj["isLocked"] = prop.isLocked();
+
   if (prop.isAnimated()) {
     QJsonArray kfArray;
     for (const auto &kf : prop.keyframes()) {
@@ -17,6 +20,12 @@ QJsonObject serializeAnimProperty(const anim::AnimProperty &prop) {
       kfObj["frame"] = static_cast<qint64>(kf.frame);
       kfObj["value"] = static_cast<double>(kf.value);
       kfObj["interp"] = static_cast<int>(kf.interpolation);
+
+      kfObj["inX"] = static_cast<double>(kf.bezier.inX);
+      kfObj["inY"] = static_cast<double>(kf.bezier.inY);
+      kfObj["outX"] = static_cast<double>(kf.bezier.outX);
+      kfObj["outY"] = static_cast<double>(kf.bezier.outY);
+
       kfArray.append(kfObj);
     }
     obj["keyframes"] = kfArray;
@@ -28,6 +37,9 @@ void deserializeAnimProperty(const QJsonObject &obj, anim::AnimProperty &prop,
                              float defaultVal) {
   float val = static_cast<float>(obj.value("value").toDouble(defaultVal));
   prop.setStaticValue(val);
+  prop.setMuted(obj.value("isMuted").toBool(false));
+  prop.setLocked(obj.value("isLocked").toBool(false));
+
   if (obj.value("isAnimated").toBool(false)) {
     QJsonArray kfArray = obj.value("keyframes").toArray();
     for (const auto &item : kfArray) {
@@ -37,7 +49,14 @@ void deserializeAnimProperty(const QJsonObject &obj, anim::AnimProperty &prop,
       auto kfVal = static_cast<float>(kfObj.value("value").toDouble());
       auto interp =
           static_cast<anim::Interpolation>(kfObj.value("interp").toInt(1));
-      prop.setKeyframe(frame, kfVal, interp);
+
+      anim::BezierHandles bezier;
+      bezier.inX = static_cast<float>(kfObj.value("inX").toDouble(0.666));
+      bezier.inY = static_cast<float>(kfObj.value("inY").toDouble(0.0));
+      bezier.outX = static_cast<float>(kfObj.value("outX").toDouble(0.333));
+      bezier.outY = static_cast<float>(kfObj.value("outY").toDouble(0.0));
+
+      prop.setKeyframe(frame, kfVal, interp, bezier);
     }
   }
 }

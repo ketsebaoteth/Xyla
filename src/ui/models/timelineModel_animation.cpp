@@ -250,6 +250,7 @@ QVariantList TimelineModel::getClipAnimChannels(const QString &clipId,
     std::vector<Entry> entries;
     std::unordered_set<QString> animatedParents;
 
+    // Filter properties matching clip kind
     for (const auto &desc : anim::propertyRegistry()) {
       if (kind == TrackKind::Video &&
           desc.category == anim::PropertyCategory::Audio)
@@ -269,6 +270,7 @@ QVariantList TimelineModel::getClipAnimChannels(const QString &clipId,
         animatedParents.insert(desc.group + QLatin1Char('|') + desc.parent);
     }
 
+    // Build the channel info for each animatable track
     for (const Entry &e : entries) {
       const bool show =
           e.animated ||
@@ -304,7 +306,16 @@ QVariantList TimelineModel::getClipAnimChannels(const QString &clipId,
         info.details.push_back(det);
       }
 
-      result.append(info.toVariantMap());
+      QVariantMap channelMap = info.toVariantMap();
+
+      channelMap[QStringLiteral("isMuted")] = e.prop->isMuted();
+      channelMap[QStringLiteral("isLocked")] = e.prop->isLocked();
+      channelMap[QStringLiteral("currentValue")] =
+          static_cast<double>(e.prop->evaluate(relFrame));
+      channelMap[QStringLiteral("staticValue")] =
+          static_cast<double>(e.prop->staticValue());
+
+      result.append(std::move(channelMap));
     }
   }
 

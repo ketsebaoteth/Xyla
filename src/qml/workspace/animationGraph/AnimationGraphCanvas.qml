@@ -7,7 +7,7 @@ Item {
     property var activeTimelineModel: typeof timelineModel !== "undefined" ? timelineModel : null
     property var treeRows: []
     property real zoomFactor: 1.0
-    property real horizontalOffset: 0.0 // Correct timeline origin (Frame 0 = Pixel 0)
+    property real horizontalOffset: 0.0
     property real contentWidthFrames: 5000
 
     property real verticalScale: 200.0
@@ -16,7 +16,7 @@ Item {
     property var selectedKeyframes: []
     property string activeChannelId: ""
 
-    // Live preview state during active drag only
+    // Multi-key and handle live drag state
     property var activeDrag: null
 
     signal contextMenuRequested(real globalX, real globalY, string clipId, string propId, int frame, bool hasKey)
@@ -39,11 +39,36 @@ Item {
         return (centerY - yPx) / verticalScale;
     }
 
+    function isChannelActive(row) {
+        if (!row)
+            return false;
+        if (!root.activeChannelId || root.activeChannelId === "")
+            return true;
+
+        var prop = row.propId || row.id || "";
+        if (prop === root.activeChannelId)
+            return true;
+
+        var pGroup = row.parent || row.group || "";
+        if (pGroup !== "" && (root.activeChannelId === pGroup || root.activeChannelId.indexOf(pGroup) !== -1))
+            return true;
+
+        if (prop.indexOf(root.activeChannelId) !== -1 || root.activeChannelId.indexOf(prop) !== -1)
+            return true;
+
+        return false;
+    }
+
     function isKeySelected(clipId, propId, frame) {
+        if (!selectedKeyframes)
+            return false;
+        var fRound = Math.round(frame);
         for (var i = 0; i < selectedKeyframes.length; ++i) {
             var k = selectedKeyframes[i];
-            if (k.clipId === clipId && k.propId === propId && Math.round(k.frame) === Math.round(frame))
-                return true;
+            if (k.propId === propId && Math.round(k.frame) === fRound) {
+                if (!clipId || !k.clipId || k.clipId === clipId)
+                    return true;
+            }
         }
         return false;
     }
@@ -66,7 +91,14 @@ Item {
         }
     }
 
-    Keys.onPressed: event => {
+    function deleteSelectedKeyframes() {
+        if (!root.activeTimelineModel || selectedKeyframes.length === 0)
+            return;
+        root.activeTimelineModel.removeKeyframes(selectedKeyframes);
+        root.selectedKeyframes = [];
+    }
+
+    Keys.onPressed: function (event) {
         if (event.key === Qt.Key_1 || event.key === Qt.Key_L) {
             root.setSelectedInterpolation(1);
             event.accepted = true;
@@ -75,6 +107,9 @@ Item {
             event.accepted = true;
         } else if (event.key === Qt.Key_0 || event.key === Qt.Key_H) {
             root.setSelectedInterpolation(0);
+            event.accepted = true;
+        } else if (event.key === Qt.Key_Delete || event.key === Qt.Key_Backspace) {
+            root.deleteSelectedKeyframes();
             event.accepted = true;
         }
     }
@@ -96,13 +131,14 @@ Item {
     // 2. Main Graph Viewport
     Item {
         id: graphViewport
+        readonly property var canvasView: root
+
         anchors.top: parent.top
         anchors.bottom: parent.bottom
         anchors.left: valueRuler.right
         anchors.right: parent.right
         clip: true
 
-        // Dark void background for time < 0
         Rectangle {
             anchors.fill: parent
             color: "#0a0a0a"
@@ -119,7 +155,7 @@ Item {
             property real lastPanY: 0
             property bool isMarquee: false
 
-            onPressed: mouse => {
+            onPressed: function (mouse) {
                 root.forceActiveFocus();
 
                 if (mouse.button === Qt.RightButton) {
@@ -142,7 +178,7 @@ Item {
                 }
             }
 
-            onPositionChanged: mouse => {
+            onPositionChanged: function (mouse) {
                 if (mouse.buttons & Qt.MiddleButton) {
                     var dx = mouse.x - lastPanX;
                     var dy = mouse.y - lastPanY;
@@ -173,7 +209,7 @@ Item {
                 }
             }
 
-            onReleased: mouse => {
+            onReleased: function (mouse) {
                 if (isMarquee) {
                     isMarquee = false;
                     graphMarqueeBox.visible = false;
@@ -192,17 +228,26 @@ Item {
                         var row = root.treeRows[r];
                         if (row.type !== "channel" || !row.details)
                             continue;
-                        if (root.activeChannelId !== "" && root.activeChannelId !== row.propId)
+                        if (!root.isChannelActive(row))
                             continue;
 
                         for (var k = 0; k < row.details.length; ++k) {
                             var kf = row.details[k];
                             if (kf.frame >= minF && kf.frame <= maxF && kf.value >= minV && kf.value <= maxV) {
-                                newSelection.push({
-                                    clipId: row.clipId,
-                                    propId: row.propId,
-                                    frame: kf.frame
-                                });
+                                var alreadyIn = false;
+                                for (var s = 0; s < newSelection.length; ++s) {
+                                    if (newSelection[s].propId === row.propId && Math.round(newSelection[s].frame) === Math.round(kf.frame)) {
+                                        alreadyIn = true;
+                                        break;
+                                    }
+                                }
+                                if (!alreadyIn) {
+                                    newSelection.push({
+                                        clipId: row.clipId,
+                                        propId: row.propId,
+                                        frame: kf.frame
+                                    });
+                                }
                             }
                         }
                     }
@@ -213,7 +258,7 @@ Item {
                 }
             }
 
-            onWheel: wheel => {
+            onWheel: function (wheel) {
                 if ((wheel.modifiers & Qt.ControlModifier) && !(wheel.modifiers & Qt.ShiftModifier)) {
                     var mouseCanvasX = wheel.x + root.horizontalOffset;
                     var frameAtMouse = mouseCanvasX / root.zoomFactor;
@@ -259,7 +304,7 @@ Item {
             z: 99
         }
 
-        // Viewport Grid Canvas
+        // Grid Canvas: Horizontal grid lines only
         Canvas {
             id: gridCanvas
             anchors.fill: parent
@@ -283,24 +328,16 @@ Item {
                 var startVal = Math.floor(Math.min(topVal, bottomVal) / step) * step;
                 var endVal = Math.ceil(Math.max(topVal, bottomVal) / step) * step;
 
+                // Horizontal Value Grid Lines
                 for (var val = startVal; val <= endVal; val += step) {
                     var y = Math.round(centerY - (val * root.verticalScale)) + 0.5;
                     var isZero = Math.abs(val) < (step * 0.001);
 
-                    ctx.strokeStyle = isZero ? "#2b2b2b" : "#171717";
-                    ctx.lineWidth = 1.0;
+                    ctx.strokeStyle = isZero ? "#303030" : "#171717";
+                    ctx.lineWidth = isZero ? 1.5 : 1.0;
                     ctx.beginPath();
                     ctx.moveTo(Math.max(0, frame0ScreenX), y);
                     ctx.lineTo(width, y);
-                    ctx.stroke();
-                }
-
-                if (frame0ScreenX >= 0 && frame0ScreenX <= width) {
-                    ctx.strokeStyle = "#383838";
-                    ctx.lineWidth = 1.0;
-                    ctx.beginPath();
-                    ctx.moveTo(frame0ScreenX + 0.5, 0);
-                    ctx.lineTo(frame0ScreenX + 0.5, height);
                     ctx.stroke();
                 }
             }
@@ -322,7 +359,7 @@ Item {
             }
         }
 
-        // Real-Time Spline Canvas
+        // Real-Time Spline Canvas: Continuous solid curves
         Canvas {
             id: curveCanvas
             anchors.fill: parent
@@ -384,11 +421,17 @@ Item {
                     var keys = [];
                     for (var kIdx = 0; kIdx < row.details.length; ++kIdx) {
                         var kObj = Object.assign({}, row.details[kIdx]);
-                        if (root.activeDrag && root.activeDrag.propId === row.propId && root.activeDrag.origFrame === kObj.frame) {
-                            if (root.activeDrag.type === "key") {
-                                kObj.frame = root.activeDrag.currentFrame;
-                                kObj.value = root.activeDrag.currentValue;
-                            } else if (root.activeDrag.type === "handle_out") {
+                        if (root.activeDrag && root.activeDrag.type === "keys") {
+                            for (var dk = 0; dk < root.activeDrag.keys.length; ++dk) {
+                                var dEntry = root.activeDrag.keys[dk];
+                                if (dEntry.propId === row.propId && dEntry.origFrame === kObj.frame) {
+                                    kObj.frame = Math.max(0, dEntry.origFrame + root.activeDrag.deltaFrame);
+                                    kObj.value = dEntry.origValue + root.activeDrag.deltaValue;
+                                    break;
+                                }
+                            }
+                        } else if (root.activeDrag && root.activeDrag.propId === row.propId && root.activeDrag.origFrame === kObj.frame) {
+                            if (root.activeDrag.type === "handle_out") {
                                 kObj.outX = root.activeDrag.outX;
                                 kObj.outY = root.activeDrag.outY;
                                 kObj.interp = 2;
@@ -406,13 +449,14 @@ Item {
                     });
 
                     var strokeCol = row.color || "#3B82F6";
-                    var isFocused = (root.activeChannelId === "" || root.activeChannelId === row.propId);
+                    var isFocused = root.isChannelActive(row);
 
                     ctx.strokeStyle = strokeCol;
                     ctx.lineWidth = isFocused ? 1.75 : 1.0;
-                    ctx.globalAlpha = isFocused ? 1.0 : 0.35;
+                    ctx.globalAlpha = isFocused ? 1.0 : 0.25;
                     ctx.beginPath();
 
+                    // Solid Lead-in line
                     var firstX = root.frameToX(keys[0].frame);
                     var firstY = root.valueToY(keys[0].value);
                     var leadInLeft = Math.min(viewLeft, 0);
@@ -433,19 +477,16 @@ Item {
                             continue;
                         }
 
-                        var isDraggingThisSegment = root.activeDrag && root.activeDrag.propId === row.propId && (root.activeDrag.origFrame === k0.frame || root.activeDrag.origFrame === k1.frame);
-
                         var k0Interp = Number(k0.interp !== undefined ? k0.interp : 1);
                         var k1Interp = Number(k1.interp !== undefined ? k1.interp : 1);
+                        var isBezier = (k0Interp === 2) || (k1Interp === 2);
 
-                        var isBezier = (k0Interp === 2) || (k1Interp === 2) || (isDraggingThisSegment && root.activeDrag.type !== "key");
-
-                        if (!isBezier && k0Interp === 0) { // Hold
+                        if (!isBezier && k0Interp === 0) {
                             ctx.lineTo(x1, y0);
                             ctx.lineTo(x1, y1);
-                        } else if (!isBezier) { // Linear
+                        } else if (!isBezier) {
                             ctx.lineTo(x1, y1);
-                        } else { // Bezier Spline
+                        } else {
                             var oX = Math.max(0.001, Math.min(0.999, (k0.outX !== undefined ? k0.outX : 0.333)));
                             var iX = Math.max(0.001, Math.min(0.999, (k1.inX !== undefined ? k1.inX : 0.666)));
                             var oY = (k0.outY !== undefined ? k0.outY : 0.0);
@@ -471,6 +512,7 @@ Item {
                         }
                     }
 
+                    // Solid Lead-out line
                     var lastKey = keys[keys.length - 1];
                     var lastX = root.frameToX(lastKey.frame);
                     var lastY = root.valueToY(lastKey.value);
@@ -512,6 +554,8 @@ Item {
         // Active Interactive Layer
         Item {
             id: graphContent
+            readonly property var canvasView: root
+
             x: -root.horizontalOffset
             width: root.contentWidthFrames * root.zoomFactor
             height: graphViewport.height
@@ -521,8 +565,9 @@ Item {
 
                 Item {
                     id: channelLayerItem
+                    readonly property var canvasView: graphContent.canvasView
                     readonly property var channelRow: modelData
-                    visible: channelRow.type === "channel" && (root.activeChannelId === "" || root.activeChannelId === channelRow.propId)
+                    visible: channelRow.type === "channel" && canvasView.isChannelActive(channelRow)
                     anchors.fill: parent
 
                     readonly property var rawKeys: (channelRow.details || []).slice().sort(function (a, b) {
@@ -534,33 +579,35 @@ Item {
 
                         Item {
                             id: kfItem
+                            readonly property var canvasView: channelLayerItem.canvasView
                             readonly property int kIndex: index
                             readonly property var kData: modelData
-                            readonly property bool isBeingDragged: root.activeDrag && root.activeDrag.propId === channelLayerItem.channelRow.propId && root.activeDrag.origFrame === kData.frame && root.activeDrag.type === "key"
 
-                            readonly property real liveFrame: isBeingDragged ? root.activeDrag.currentFrame : kData.frame
-                            readonly property real liveValue: isBeingDragged ? root.activeDrag.currentValue : kData.value
+                            readonly property bool isKeyInMultiDrag: canvasView.activeDrag && canvasView.activeDrag.type === "keys" && canvasView.isKeySelected(channelLayerItem.channelRow.clipId, channelLayerItem.channelRow.propId, kData.frame)
 
-                            x: root.frameToX(liveFrame)
-                            y: root.valueToY(liveValue)
+                            readonly property real liveFrame: isKeyInMultiDrag ? Math.max(0, kData.frame + canvasView.activeDrag.deltaFrame) : kData.frame
+                            readonly property real liveValue: isKeyInMultiDrag ? (kData.value + canvasView.activeDrag.deltaValue) : kData.value
+
+                            x: canvasView.frameToX(liveFrame)
+                            y: canvasView.valueToY(liveValue)
                             z: isSelected ? 10 : 1
 
-                            readonly property bool isSelected: root.isKeySelected(channelLayerItem.channelRow.clipId, channelLayerItem.channelRow.propId, kData.frame)
+                            readonly property bool isSelected: canvasView.isKeySelected(channelLayerItem.channelRow.clipId, channelLayerItem.channelRow.propId, kData.frame)
                             readonly property int currentInterp: Number(kData.interp !== undefined ? kData.interp : 1)
 
-                            readonly property real prevDx: kIndex > 0 ? Math.max(20, root.frameToX(kData.frame - channelLayerItem.rawKeys[kIndex - 1].frame)) : 80
-                            readonly property real nextDx: kIndex < channelLayerItem.rawKeys.length - 1 ? Math.max(20, root.frameToX(channelLayerItem.rawKeys[kIndex + 1].frame - kData.frame)) : 80
+                            readonly property real prevDx: kIndex > 0 ? Math.max(20, canvasView.frameToX(kData.frame - channelLayerItem.rawKeys[kIndex - 1].frame)) : 80
+                            readonly property real nextDx: kIndex < channelLayerItem.rawKeys.length - 1 ? Math.max(20, canvasView.frameToX(channelLayerItem.rawKeys[kIndex + 1].frame - kData.frame)) : 80
 
-                            // ── Tangent Handle: Incoming (Left) ──
+                            // Tangent Handle: Incoming (Left)
                             Item {
                                 visible: kfItem.isSelected && (kfItem.currentInterp === 2 || (kIndex > 0 && Number(channelLayerItem.rawKeys[kIndex - 1].interp) === 2))
 
-                                readonly property bool isHandleDragged: root.activeDrag && root.activeDrag.propId === channelLayerItem.channelRow.propId && root.activeDrag.origFrame === kData.frame && root.activeDrag.type === "handle_in"
-                                readonly property real liveInX: isHandleDragged ? root.activeDrag.inX : (kData.inX !== undefined ? kData.inX : 0.666)
-                                readonly property real liveInY: isHandleDragged ? root.activeDrag.inY : (kData.inY !== undefined ? kData.inY : 0.0)
+                                readonly property bool isHandleDragged: kfItem.canvasView.activeDrag && kfItem.canvasView.activeDrag.propId === channelLayerItem.channelRow.propId && kfItem.canvasView.activeDrag.origFrame === kData.frame && kfItem.canvasView.activeDrag.type === "handle_in"
+                                readonly property real liveInX: isHandleDragged ? kfItem.canvasView.activeDrag.inX : (kData.inX !== undefined ? kData.inX : 0.666)
+                                readonly property real liveInY: isHandleDragged ? kfItem.canvasView.activeDrag.inY : (kData.inY !== undefined ? kData.inY : 0.0)
 
                                 readonly property real hRelX: -kfItem.prevDx * (1.0 - liveInX)
-                                readonly property real hRelY: -(liveInY * root.verticalScale)
+                                readonly property real hRelY: -(liveInY * kfItem.canvasView.verticalScale)
 
                                 Rectangle {
                                     width: Math.hypot(parent.hRelX, parent.hRelY)
@@ -587,9 +634,10 @@ Item {
                                         cursorShape: Qt.PointingHandCursor
                                         preventStealing: true
 
-                                        onPressed: mouse => {
+                                        onPressed: function (mouse) {
                                             mouse.accepted = true;
-                                            root.activeDrag = {
+                                            var cv = kfItem.canvasView;
+                                            cv.activeDrag = {
                                                 type: "handle_in",
                                                 clipId: channelLayerItem.channelRow.clipId,
                                                 propId: channelLayerItem.channelRow.propId,
@@ -602,49 +650,51 @@ Item {
                                             };
                                         }
 
-                                        onPositionChanged: mouse => {
-                                            if (!pressed || !root.activeDrag)
+                                        onPositionChanged: function (mouse) {
+                                            var cv = kfItem.canvasView;
+                                            if (!pressed || !cv.activeDrag)
                                                 return;
                                             var gPt = mapToItem(graphContent, mouse.x, mouse.y);
-                                            var kPtX = root.frameToX(kfItem.liveFrame);
-                                            var kPtY = root.valueToY(kfItem.liveValue);
+                                            var kPtX = cv.frameToX(kfItem.liveFrame);
+                                            var kPtY = cv.valueToY(kfItem.liveValue);
 
                                             var maxDist = Math.max(20, kfItem.prevDx * 0.999);
                                             var distPx = Math.max(2, Math.min(maxDist, kPtX - gPt.x));
                                             var ratio = distPx / kfItem.prevDx;
 
                                             var normInX = Math.max(0.001, Math.min(0.999, 1.0 - ratio));
-                                            var normInY = (kPtY - gPt.y) / root.verticalScale;
+                                            var normInY = (kPtY - gPt.y) / cv.verticalScale;
 
-                                            root.activeDrag = Object.assign({}, root.activeDrag, {
+                                            cv.activeDrag = Object.assign({}, cv.activeDrag, {
                                                 inX: normInX,
                                                 inY: normInY
                                             });
                                         }
 
-                                        onReleased: mouse => {
-                                            if (root.activeDrag && root.activeTimelineModel) {
-                                                var d = root.activeDrag;
-                                                root.activeDrag = null;
-                                                root.activeTimelineModel.updateKeyframe(d.clipId, d.propId, d.origFrame, d.origFrame, d.origValue, 2, d.inX, d.inY, d.outX, d.outY);
+                                        onReleased: function (mouse) {
+                                            var cv = kfItem.canvasView;
+                                            if (cv.activeDrag && cv.activeTimelineModel) {
+                                                var d = cv.activeDrag;
+                                                cv.activeDrag = null;
+                                                cv.activeTimelineModel.updateKeyframe(d.clipId, d.propId, d.origFrame, d.origFrame, d.origValue, 2, d.inX, d.inY, d.outX, d.outY);
                                             } else {
-                                                root.activeDrag = null;
+                                                cv.activeDrag = null;
                                             }
                                         }
                                     }
                                 }
                             }
 
-                            // ── Tangent Handle: Outgoing (Right) ──
+                            // Tangent Handle: Outgoing (Right)
                             Item {
                                 visible: kfItem.isSelected && (kfItem.currentInterp === 2 || (kIndex < channelLayerItem.rawKeys.length - 1 && Number(channelLayerItem.rawKeys[kIndex + 1].interp) === 2))
 
-                                readonly property bool isHandleDragged: root.activeDrag && root.activeDrag.propId === channelLayerItem.channelRow.propId && root.activeDrag.origFrame === kData.frame && root.activeDrag.type === "handle_out"
-                                readonly property real liveOutX: isHandleDragged ? root.activeDrag.outX : (kData.outX !== undefined ? kData.outX : 0.333)
-                                readonly property real liveOutY: isHandleDragged ? root.activeDrag.outY : (kData.outY !== undefined ? kData.outY : 0.0)
+                                readonly property bool isHandleDragged: kfItem.canvasView.activeDrag && kfItem.canvasView.activeDrag.propId === channelLayerItem.channelRow.propId && kfItem.canvasView.activeDrag.origFrame === kData.frame && kfItem.canvasView.activeDrag.type === "handle_out"
+                                readonly property real liveOutX: isHandleDragged ? kfItem.canvasView.activeDrag.outX : (kData.outX !== undefined ? kData.outX : 0.333)
+                                readonly property real liveOutY: isHandleDragged ? kfItem.canvasView.activeDrag.outY : (kData.outY !== undefined ? kData.outY : 0.0)
 
                                 readonly property real hRelX: kfItem.nextDx * liveOutX
-                                readonly property real hRelY: -(liveOutY * root.verticalScale)
+                                readonly property real hRelY: -(liveOutY * kfItem.canvasView.verticalScale)
 
                                 Rectangle {
                                     width: Math.hypot(parent.hRelX, parent.hRelY)
@@ -671,9 +721,10 @@ Item {
                                         cursorShape: Qt.PointingHandCursor
                                         preventStealing: true
 
-                                        onPressed: mouse => {
+                                        onPressed: function (mouse) {
                                             mouse.accepted = true;
-                                            root.activeDrag = {
+                                            var cv = kfItem.canvasView;
+                                            cv.activeDrag = {
                                                 type: "handle_out",
                                                 clipId: channelLayerItem.channelRow.clipId,
                                                 propId: channelLayerItem.channelRow.propId,
@@ -686,39 +737,41 @@ Item {
                                             };
                                         }
 
-                                        onPositionChanged: mouse => {
-                                            if (!pressed || !root.activeDrag)
+                                        onPositionChanged: function (mouse) {
+                                            var cv = kfItem.canvasView;
+                                            if (!pressed || !cv.activeDrag)
                                                 return;
                                             var gPt = mapToItem(graphContent, mouse.x, mouse.y);
-                                            var kPtX = root.frameToX(kfItem.liveFrame);
-                                            var kPtY = root.valueToY(kfItem.liveValue);
+                                            var kPtX = cv.frameToX(kfItem.liveFrame);
+                                            var kPtY = cv.valueToY(kfItem.liveValue);
 
                                             var maxDist = Math.max(20, kfItem.nextDx * 0.999);
                                             var distPx = Math.max(2, Math.min(maxDist, gPt.x - kPtX));
 
                                             var normOutX = Math.max(0.001, Math.min(0.999, distPx / kfItem.nextDx));
-                                            var normOutY = (kPtY - gPt.y) / root.verticalScale;
+                                            var normOutY = (kPtY - gPt.y) / cv.verticalScale;
 
-                                            root.activeDrag = Object.assign({}, root.activeDrag, {
+                                            cv.activeDrag = Object.assign({}, cv.activeDrag, {
                                                 outX: normOutX,
                                                 outY: normOutY
                                             });
                                         }
 
-                                        onReleased: mouse => {
-                                            if (root.activeDrag && root.activeTimelineModel) {
-                                                var d = root.activeDrag;
-                                                root.activeDrag = null;
-                                                root.activeTimelineModel.updateKeyframe(d.clipId, d.propId, d.origFrame, d.origFrame, d.origValue, 2, d.inX, d.inY, d.outX, d.outY);
+                                        onReleased: function (mouse) {
+                                            var cv = kfItem.canvasView;
+                                            if (cv.activeDrag && cv.activeTimelineModel) {
+                                                var d = cv.activeDrag;
+                                                cv.activeDrag = null;
+                                                cv.activeTimelineModel.updateKeyframe(d.clipId, d.propId, d.origFrame, d.origFrame, d.origValue, 2, d.inX, d.inY, d.outX, d.outY);
                                             } else {
-                                                root.activeDrag = null;
+                                                cv.activeDrag = null;
                                             }
                                         }
                                     }
                                 }
                             }
 
-                            // ── Keyframe Center Knob ──
+                            // Keyframe Center Knob
                             Rectangle {
                                 x: -4.5
                                 y: -4.5
@@ -736,34 +789,42 @@ Item {
                                     cursorShape: Qt.SizeAllCursor
                                     preventStealing: true
 
-                                    property real startCanvasX: 0
-                                    property real startCanvasY: 0
-                                    property real startFrame: 0
-                                    property real startValue: 0
+                                    property real startViewportX: 0
+                                    property real startViewportY: 0
                                     property bool hasDragged: false
 
-                                    onPressed: mouse => {
+                                    onPressed: function (mouse) {
                                         mouse.accepted = true;
-                                        root.forceActiveFocus();
-                                        root.activeChannelId = channelLayerItem.channelRow.propId;
+                                        var cv = kfItem.canvasView;
+                                        cv.forceActiveFocus();
+                                        cv.activeChannelId = channelLayerItem.channelRow.propId;
 
-                                        var gPt = mapToItem(graphContent, mouse.x, mouse.y);
-                                        startCanvasX = gPt.x;
-                                        startCanvasY = gPt.y;
-                                        startFrame = kData.frame;
-                                        startValue = kData.value;
+                                        var vPt = mapToItem(graphViewport, mouse.x, mouse.y);
+                                        startViewportX = vPt.x;
+                                        startViewportY = vPt.y;
                                         hasDragged = false;
 
+                                        var alreadySelected = cv.isKeySelected(channelLayerItem.channelRow.clipId, channelLayerItem.channelRow.propId, kData.frame);
+
                                         if (mouse.modifiers & Qt.ShiftModifier) {
-                                            var copy = root.selectedKeyframes.slice();
-                                            copy.push({
-                                                clipId: channelLayerItem.channelRow.clipId,
-                                                propId: channelLayerItem.channelRow.propId,
-                                                frame: kData.frame
-                                            });
-                                            root.selectedKeyframes = copy;
-                                        } else {
-                                            root.selectedKeyframes = [
+                                            var copy = cv.selectedKeyframes.slice();
+                                            if (alreadySelected) {
+                                                for (var i = copy.length - 1; i >= 0; --i) {
+                                                    if (copy[i].propId === channelLayerItem.channelRow.propId && Math.round(copy[i].frame) === Math.round(kData.frame)) {
+                                                        copy.splice(i, 1);
+                                                        break;
+                                                    }
+                                                }
+                                            } else {
+                                                copy.push({
+                                                    clipId: channelLayerItem.channelRow.clipId,
+                                                    propId: channelLayerItem.channelRow.propId,
+                                                    frame: kData.frame
+                                                });
+                                            }
+                                            cv.selectedKeyframes = copy;
+                                        } else if (!alreadySelected) {
+                                            cv.selectedKeyframes = [
                                                 {
                                                     clipId: channelLayerItem.channelRow.clipId,
                                                     propId: channelLayerItem.channelRow.propId,
@@ -773,52 +834,97 @@ Item {
                                         }
                                     }
 
-                                    onPositionChanged: mouse => {
+                                    onPositionChanged: function (mouse) {
                                         if (!pressed)
                                             return;
 
-                                        var gPt = mapToItem(graphContent, mouse.x, mouse.y);
-                                        var deltaPxX = gPt.x - startCanvasX;
-                                        var deltaPxY = gPt.y - startCanvasY;
+                                        var cv = kfItem.canvasView;
+                                        var vPt = mapToItem(graphViewport, mouse.x, mouse.y);
+                                        var deltaPxX = vPt.x - startViewportX;
+                                        var deltaPxY = vPt.y - startViewportY;
 
                                         if (!hasDragged && Math.hypot(deltaPxX, deltaPxY) > 3) {
                                             hasDragged = true;
-                                            root.activeDrag = {
-                                                type: "key",
-                                                clipId: channelLayerItem.channelRow.clipId,
-                                                propId: channelLayerItem.channelRow.propId,
-                                                origFrame: startFrame,
-                                                origValue: startValue,
-                                                currentFrame: startFrame,
-                                                currentValue: startValue,
-                                                interp: kfItem.currentInterp,
-                                                inX: kData.inX !== undefined ? kData.inX : 0.666,
-                                                inY: kData.inY !== undefined ? kData.inY : 0.0,
-                                                outX: kData.outX !== undefined ? kData.outX : 0.333,
-                                                outY: kData.outY !== undefined ? kData.outY : 0.0
+
+                                            var dragKeys = [];
+                                            for (var s = 0; s < cv.selectedKeyframes.length; ++s) {
+                                                var sk = cv.selectedKeyframes[s];
+                                                for (var r = 0; r < cv.treeRows.length; ++r) {
+                                                    var row = cv.treeRows[r];
+                                                    if (row.type !== "channel" || !row.details)
+                                                        continue;
+                                                    if (row.propId === sk.propId) {
+                                                        for (var kd = 0; kd < row.details.length; ++kd) {
+                                                            var dItem = row.details[kd];
+                                                            if (Math.round(dItem.frame) === Math.round(sk.frame)) {
+                                                                dragKeys.push({
+                                                                    clipId: row.clipId,
+                                                                    propId: row.propId,
+                                                                    origFrame: dItem.frame,
+                                                                    origValue: dItem.value,
+                                                                    interp: Number(dItem.interp !== undefined ? dItem.interp : 1),
+                                                                    inX: dItem.inX !== undefined ? dItem.inX : 0.666,
+                                                                    inY: dItem.inY !== undefined ? dItem.inY : 0.0,
+                                                                    outX: dItem.outX !== undefined ? dItem.outX : 0.333,
+                                                                    outY: dItem.outY !== undefined ? dItem.outY : 0.0
+                                                                });
+                                                                break;
+                                                            }
+                                                        }
+                                                    }
+                                                }
+                                            }
+
+                                            cv.activeDrag = {
+                                                type: "keys",
+                                                deltaFrame: 0,
+                                                deltaValue: 0,
+                                                keys: dragKeys
                                             };
                                         }
 
-                                        if (hasDragged && root.activeDrag) {
-                                            var deltaF = Math.round(deltaPxX / root.zoomFactor);
-                                            var deltaV = -deltaPxY / root.verticalScale;
+                                        if (hasDragged && cv.activeDrag && cv.activeDrag.type === "keys") {
+                                            var deltaF = Math.round(deltaPxX / cv.zoomFactor);
+                                            var deltaV = -deltaPxY / cv.verticalScale;
 
-                                            var clampedF = Math.max(0, startFrame + deltaF);
+                                            for (var k = 0; k < cv.activeDrag.keys.length; ++k) {
+                                                if (cv.activeDrag.keys[k].origFrame + deltaF < 0) {
+                                                    deltaF = -cv.activeDrag.keys[k].origFrame;
+                                                }
+                                            }
 
-                                            root.activeDrag = Object.assign({}, root.activeDrag, {
-                                                currentFrame: clampedF,
-                                                currentValue: startValue + deltaV
+                                            cv.activeDrag = Object.assign({}, cv.activeDrag, {
+                                                deltaFrame: deltaF,
+                                                deltaValue: deltaV
                                             });
                                         }
                                     }
 
-                                    onReleased: mouse => {
-                                        if (hasDragged && root.activeDrag && root.activeTimelineModel) {
-                                            var d = root.activeDrag;
-                                            root.activeDrag = null;
-                                            root.activeTimelineModel.updateKeyframe(d.clipId, d.propId, d.origFrame, d.currentFrame, d.currentValue, d.interp, d.inX, d.inY, d.outX, d.outY);
+                                    onReleased: function (mouse) {
+                                        var cv = kfItem.canvasView;
+
+                                        if (hasDragged && cv.activeDrag && cv.activeDrag.type === "keys" && cv.activeTimelineModel) {
+                                            var d = cv.activeDrag;
+                                            cv.activeDrag = null;
+
+                                            var updatedSel = [];
+                                            for (var i = 0; i < d.keys.length; ++i) {
+                                                var item = d.keys[i];
+                                                var newF = Math.max(0, item.origFrame + d.deltaFrame);
+                                                var newV = item.origValue + d.deltaValue;
+
+                                                cv.activeTimelineModel.updateKeyframe(item.clipId, item.propId, item.origFrame, newF, newV, item.interp, item.inX, item.inY, item.outX, item.outY);
+
+                                                updatedSel.push({
+                                                    clipId: item.clipId,
+                                                    propId: item.propId,
+                                                    frame: newF
+                                                });
+                                            }
+
+                                            cv.selectedKeyframes = updatedSel;
                                         } else {
-                                            root.activeDrag = null;
+                                            cv.activeDrag = null;
                                         }
                                         hasDragged = false;
                                     }
@@ -828,17 +934,6 @@ Item {
                     }
                 }
             }
-        }
-
-        // Live Playhead Indicator inside canvas
-        Rectangle {
-            readonly property real pFrame: root.activeTimelineModel && root.activeTimelineModel.currentFrame !== undefined ? root.activeTimelineModel.currentFrame : 0
-            x: root.frameToX(pFrame) - root.horizontalOffset
-            width: 1
-            height: parent.height
-            color: "#EF4444"
-            z: 80
-            visible: root.activeTimelineModel !== null
         }
     }
 }

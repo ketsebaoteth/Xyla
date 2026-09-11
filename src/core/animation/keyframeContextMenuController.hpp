@@ -53,20 +53,21 @@ class KeyframeContextMenuController : public QObject {
 public:
   explicit KeyframeContextMenuController(QObject *parent = nullptr);
 
+  Q_INVOKABLE void muteChannel(QObject *modelObj, const QString &clipId,
+                               const QString &propId, bool mute);
+
+  Q_INVOKABLE void lockChannel(QObject *modelObj, const QString &clipId,
+                               const QString &propId, bool lock);
   [[nodiscard]] bool hasClipboard() const noexcept {
     return !m_clipboard.isEmpty();
   }
 
-  // ── Copy & Paste Operations ──────────────────────────────────
   Q_INVOKABLE void copy(QObject *model, const QVariantList &selectedKeys);
-
-  // Dedicated paste variants for QML:
   Q_INVOKABLE void paste(QObject *model, int64_t playheadFrame);
   Q_INVOKABLE void pasteNoOffset(QObject *model);
   Q_INVOKABLE void pasteOverwriteRange(QObject *model, int64_t playheadFrame);
   Q_INVOKABLE void pasteOverwriteAll(QObject *model, int64_t playheadFrame);
 
-  // ── Curve & Handle Operations ────────────────────────────────
   Q_INVOKABLE void setInterpolation(QObject *model,
                                     const QVariantList &selectedKeys,
                                     int interpMode);
@@ -76,7 +77,6 @@ public:
   Q_INVOKABLE void setEasing(QObject *model, const QVariantList &selectedKeys,
                              int easingTypeInt);
 
-  // ── Key Utilities ────────────────────────────────────────────
   Q_INVOKABLE void cleanKeys(QObject *model, const QVariantList &selectedKeys,
                              float tolerance = 0.001f);
   Q_INVOKABLE void sampleKeys(QObject *model, const QVariantList &selectedKeys);
@@ -84,11 +84,6 @@ public:
                              const QString &propId);
   Q_INVOKABLE void deleteKeys(QObject *model, const QVariantList &selectedKeys);
 
-  // ── Channel Operations ───────────────────────────────────────
-  Q_INVOKABLE void muteChannel(QObject *model, const QString &clipId,
-                               const QString &propId, bool mute);
-  Q_INVOKABLE void lockChannel(QObject *model, const QString &clipId,
-                               const QString &propId, bool lock);
   Q_INVOKABLE void setExtrapolation(QObject *model, const QString &clipId,
                                     const QString &propId, int modeInt);
 

@@ -62,17 +62,12 @@ void KeyframeContextMenuController::copy(QObject *modelObj,
     }
   }
 
-  qDebug() << "[Clipboard] Copied" << m_clipboard.keys.size() << "keyframes."
-           << "Span:" << minF << "to" << maxF;
-
   if (!m_clipboard.keys.empty()) {
     m_clipboard.earliestFrame = minF;
     m_clipboard.latestFrame = maxF;
     emit clipboardChanged();
   }
 }
-
-// ── Explicit Paste Implementations ─────────────────────────────
 
 void KeyframeContextMenuController::paste(QObject *modelObj,
                                           int64_t playheadFrame) {
@@ -347,17 +342,49 @@ void KeyframeContextMenuController::deleteKeys(
   }
 }
 
-void KeyframeContextMenuController::muteChannel(QObject *modelObj,
-                                                const QString &clipId,
-                                                const QString &propId,
-                                                bool mute) {}
-void KeyframeContextMenuController::lockChannel(QObject *modelObj,
-                                                const QString &clipId,
-                                                const QString &propId,
-                                                bool lock) {}
+// TODO: finish set extrapolcation
 void KeyframeContextMenuController::setExtrapolation(QObject *modelObj,
                                                      const QString &clipId,
                                                      const QString &propId,
                                                      int modeInt) {}
 
+void KeyframeContextMenuController::muteChannel(QObject *modelObj,
+                                                const QString &clipId,
+                                                const QString &propId,
+                                                bool mute) {
+  auto *model = resolveModel(modelObj);
+  if (!model)
+    return;
+
+  auto *clip = model->findClip(clipId);
+  if (!clip)
+    return;
+
+  auto *prop = clip->findAnimProperty(propId);
+  if (!prop)
+    return;
+
+  prop->setMuted(mute);
+  emit model->clipPropertiesChanged(clipId);
+}
+
+void KeyframeContextMenuController::lockChannel(QObject *modelObj,
+                                                const QString &clipId,
+                                                const QString &propId,
+                                                bool lock) {
+  auto *model = resolveModel(modelObj);
+  if (!model)
+    return;
+
+  auto *clip = model->findClip(clipId);
+  if (!clip)
+    return;
+
+  auto *prop = clip->findAnimProperty(propId);
+  if (!prop)
+    return;
+
+  prop->setLocked(lock);
+  emit model->clipPropertiesChanged(clipId);
+}
 } // namespace xyla::anim

@@ -18,6 +18,9 @@ Item {
     property var activeClipData: activeTimelineModel ? (activeTimelineModel.selectedClipData || null) : null
     readonly property bool hasClip: activeClipId !== "" && activeClipId !== "null"
 
+    // Persistent storage for custom track colors
+    property var customTrackColors: ({})
+
     readonly property int currentPlayheadFrame: activePlaybackManager ? activePlaybackManager.currentFrame : 0
 
     // 0: Dopesheet (Diamonds), 1: Animation / Speed Graph (Curves)
@@ -31,7 +34,9 @@ Item {
     property int minHeaderWidth: 140
     property int maxHeaderWidth: 500
 
-    // Shifts frame 0 by 44px in Graph Mode to account for the Value Ruler
+    // Track active selection
+    property string activePropId: ""
+
     readonly property int graphRulerWidth: 44
     readonly property int effectiveHeaderWidth: headerWidth + (activeViewMode === 1 ? graphRulerWidth : 0)
 
@@ -82,7 +87,6 @@ Item {
                 clipKeysMap[kfs[k]] = true;
         }
         var clipSummaryKeys = Object.keys(clipKeysMap).map(Number).sort((a, b) => a - b);
-
         rows.push({
             id: clipRowId,
             clipId: activeClipId,
@@ -182,19 +186,24 @@ Item {
                 if (subExpanded) {
                     for (var sci = 0; sci < subChannels.length; ++sci) {
                         var leaf = subChannels[sci];
+                        var leafClip = leaf.clipId || subClipId;
+                        var assignedLeafColor = dopesheetRoot.customTrackColors[leaf.id] || dopesheetRoot.customTrackColors[leafClip + "|" + leaf.id] || leaf.color || "#3B82F6";
+
                         rows.push({
                             id: leaf.id,
-                            clipId: leaf.clipId || subClipId,
+                            clipId: leafClip,
                             propId: leaf.id,
                             name: leaf.name,
-                            color: leaf.color || "#3B82F6",
+                            color: assignedLeafColor,
                             type: "channel",
                             indent: 3,
                             isExpandable: false,
                             expanded: false,
                             keyCount: leaf.keyframes ? leaf.keyframes.length : 0,
                             keyframes: leaf.keyframes || [],
-                            details: leaf.details || []
+                            details: leaf.details || [],
+                            isMuted: !!leaf.isMuted,
+                            isLocked: !!leaf.isLocked
                         });
                     }
                 }
@@ -202,19 +211,24 @@ Item {
 
             for (var st = 0; st < standalone.length; ++st) {
                 var sChan = standalone[st];
+                var sClip = sChan.clipId || grpClipId;
+                var assignedStandaloneColor = dopesheetRoot.customTrackColors[sChan.id] || dopesheetRoot.customTrackColors[sClip + "|" + sChan.id] || sChan.color || "#3B82F6";
+
                 rows.push({
                     id: sChan.id,
-                    clipId: sChan.clipId || grpClipId,
+                    clipId: sClip,
                     propId: sChan.id,
                     name: sChan.name,
-                    color: sChan.color || "#3B82F6",
+                    color: assignedStandaloneColor,
                     type: "channel",
                     indent: 2,
                     isExpandable: false,
                     expanded: false,
                     keyCount: sChan.keyframes ? sChan.keyframes.length : 0,
                     keyframes: sChan.keyframes || [],
-                    details: sChan.details || []
+                    details: sChan.details || [],
+                    isMuted: !!sChan.isMuted,
+                    isLocked: !!sChan.isLocked
                 });
             }
         }
@@ -238,13 +252,13 @@ Item {
             return;
         }
         rawChannelsData = activeTimelineModel.getClipAnimChannels(activeClipId, currentPlayheadFrame);
+        expansionRevision++;
     }
 
     Connections {
         target: activeTimelineModel
 
         function onCopyKeyframesRequested() {
-          console.log("copy requested");
             if (contextController && dopesheetRoot) {
                 contextController.copy(activeTimelineModel, dopesheetRoot.selectedKeyframes);
             }
@@ -435,7 +449,22 @@ Item {
                 DopesheetTree {
                     treeRows: dopesheetRoot.treeRows
                     headerWidth: dopesheetRoot.headerWidth
+                    activePropId: dopesheetRoot.activePropId
+                    activeClipId: dopesheetRoot.activeClipId
+
                     onToggleRowExpansion: idx => dopesheetRoot.toggleRowExpansion(idx)
+
+                    onTrackSelected: (cId, pId) => {
+                        if (cId && cId !== "")
+                            dopesheetRoot.activeClipId = cId;
+                        dopesheetRoot.activePropId = pId;
+                    }
+
+                    onContextMenuRequested: (gx, gy, cId, pId, muted, locked) => {
+                        if (pId !== "") {
+                            channelContextMenu.openAt(gx, gy, cId, pId, muted, locked);
+                        }
+                    }
                 }
 
                 StackLayout {
@@ -448,12 +477,24 @@ Item {
                         id: canvas
                         treeRows: dopesheetRoot.treeRows
                         zoomFactor: dopesheetRoot.zoomFactor
-                        // FIXED: Two-way zoom synchronization with parent ruler and playhead
                         onZoomFactorChanged: dopesheetRoot.zoomFactor = zoomFactor
                         horizontalOffset: dopesheetRoot.horizontalOffset
                         onHorizontalOffsetChanged: dopesheetRoot.horizontalOffset = horizontalOffset
                         contentWidthFrames: dopesheetRoot.contentWidth
                         selectedKeyframes: dopesheetRoot.selectedKeyframes
+                        activePropId: dopesheetRoot.activePropId
+                        activeClipId: dopesheetRoot.activeClipId
+
+                        onTrackSelected: (cId, pId) => {
+                            if (cId && cId !== "")
+                                dopesheetRoot.activeClipId = cId;
+                            dopesheetRoot.activePropId = pId;
+                        }
+
+                        // ✅ Marquee batch update: keeps selectedKeyframes perfectly in sync
+                        onSelectionBatchUpdated: newSelection => {
+                            dopesheetRoot.selectedKeyframes = newSelection;
+                        }
 
                         onClearSelectionRequested: dopesheetRoot.selectedKeyframes = []
                         onKeyframeSingleSelected: (cId, pId, f) => {
@@ -500,11 +541,11 @@ Item {
                             dopesheetRoot.selectedKeyframes = updatedSelection;
                             refreshChannels();
                         }
-                        onContextMenuRequested: (gx, gy, cId, pId, f, hasK) => {
+                        onContextMenuRequested: (gx, gy, cId, pId, f, hasK, muted, locked) => {
                             if (hasK) {
                                 keyframeContextMenu.openAt(gx, gy);
                             } else if (pId !== "") {
-                                channelContextMenu.openAt(gx, gy, cId, pId);
+                                channelContextMenu.openAt(gx, gy, cId, pId, muted, locked);
                             } else {
                                 keyframeContextMenu.openAt(gx, gy);
                             }
@@ -525,7 +566,7 @@ Item {
                             if (hasK) {
                                 keyframeContextMenu.openAt(gx, gy);
                             } else if (pId !== "") {
-                                channelContextMenu.openAt(gx, gy, cId, pId);
+                                channelContextMenu.openAt(gx, gy, cId, pId, false, false);
                             } else {
                                 keyframeContextMenu.openAt(gx, gy);
                             }
@@ -618,8 +659,37 @@ Item {
         id: channelContextMenu
         timelineModel: dopesheetRoot.activeTimelineModel
         controller: contextController
+        treeRows: dopesheetRoot.treeRows
 
         onExpandAllRequested: topToolBar.expandAllRequested()
         onCollapseAllRequested: topToolBar.collapseAllRequested()
+
+        onSelectAllInTrackRequested: (cId, pId) => {
+            var selected = [];
+            for (var i = 0; i < rawChannelsData.length; ++i) {
+                var ch = rawChannelsData[i];
+                if ((ch.clipId === cId || ch.clipId === activeClipId) && ch.id === pId) {
+                    var kfs = ch.keyframes || [];
+                    for (var k = 0; k < kfs.length; ++k) {
+                        selected.push({
+                            clipId: ch.clipId || activeClipId,
+                            propId: ch.id,
+                            frame: Math.round(kfs[k])
+                        });
+                    }
+                }
+            }
+            dopesheetRoot.selectedKeyframes = selected;
+        }
+
+        onChangeTrackColorRequested: (cId, pId, colorHex) => {
+            var copy = Object.assign({}, dopesheetRoot.customTrackColors);
+            copy[pId] = colorHex;
+            var targetClip = cId || dopesheetRoot.activeClipId;
+            if (targetClip)
+                copy[targetClip + "|" + pId] = colorHex;
+            dopesheetRoot.customTrackColors = copy;
+            dopesheetRoot.expansionRevision++;
+        }
     }
 }

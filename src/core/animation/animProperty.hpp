@@ -14,7 +14,8 @@ public:
   explicit AnimProperty(float staticValue) : m_staticValue(staticValue) {}
 
   [[nodiscard]] float evaluate(FrameIndex frame) const noexcept {
-    if (!m_isAnimated || m_keys.empty())
+    // If MUTED, hold static value and bypass keyframe animation
+    if (m_isMuted || !m_isAnimated || m_keys.empty())
       return m_staticValue;
 
     if (frame <= m_keys.front().frame)
@@ -51,6 +52,14 @@ public:
 
   [[nodiscard]] bool isAnimated() const noexcept { return m_isAnimated; }
 
+  // ── Channel State ──────────────────────────────────────────
+  [[nodiscard]] bool isMuted() const noexcept { return m_isMuted; }
+  void setMuted(bool m) noexcept { m_isMuted = m; }
+
+  [[nodiscard]] bool isLocked() const noexcept { return m_isLocked; }
+  void setLocked(bool l) noexcept { m_isLocked = l; }
+  // ───────────────────────────────────────────────────────────
+
   [[nodiscard]] bool hasKeyframe(FrameIndex frame) const noexcept {
     for (const auto &k : m_keys) {
       if (k.frame == frame)
@@ -71,6 +80,9 @@ public:
   void setKeyframe(FrameIndex frame, float value,
                    Interpolation interp = Interpolation::Linear,
                    BezierHandles bezier = {}) {
+    if (m_isLocked)
+      return; // Locked channels cannot receive keyframe updates
+
     m_isAnimated = true;
     auto it = std::lower_bound(m_keys.begin(), m_keys.end(), frame);
     if (it != m_keys.end() && it->frame == frame) {
@@ -83,6 +95,9 @@ public:
   }
 
   bool removeKeyframe(FrameIndex frame) noexcept {
+    if (m_isLocked)
+      return false;
+
     for (auto it = m_keys.begin(); it != m_keys.end(); ++it) {
       if (it->frame == frame) {
         m_keys.erase(it);
@@ -95,8 +110,9 @@ public:
   }
 
   bool moveKeyframe(FrameIndex oldFrame, FrameIndex newFrame) {
-    if (oldFrame == newFrame)
-      return true;
+    if (m_isLocked || oldFrame == newFrame)
+      return false;
+
     auto it = std::lower_bound(m_keys.begin(), m_keys.end(), oldFrame);
     if (it == m_keys.end() || it->frame != oldFrame)
       return false;
@@ -109,6 +125,8 @@ public:
   }
 
   void clearKeyframes() noexcept {
+    if (m_isLocked)
+      return;
     m_keys.clear();
     m_isAnimated = false;
   }
@@ -128,6 +146,8 @@ public:
 private:
   float m_staticValue{0.0f};
   bool m_isAnimated{false};
+  bool m_isMuted{false};
+  bool m_isLocked{false};
   std::vector<Keyframe<float>> m_keys;
 };
 
