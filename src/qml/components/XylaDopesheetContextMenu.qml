@@ -77,7 +77,7 @@ Popup {
     contentItem: ColumnLayout {
         id: popupLayout
         spacing: 4
-        width: 230
+        width: 240
 
         // =====================================================================
         // Action Tiles (Delete / Linear / Bezier / Hold)
@@ -93,6 +93,9 @@ Popup {
                 text: "Delete"
                 onClicked: {
                     contextMenu.close();
+                    if (contextMenu.dopesheetRoot) {
+                        contextMenu.dopesheetRoot.deleteSelectedKeyframes();
+                    }
                     contextMenu.deleteKeyframeRequested();
                 }
             }
@@ -103,6 +106,9 @@ Popup {
                 text: "Bezier"
                 onClicked: {
                     contextMenu.close();
+                    if (contextMenu.dopesheetRoot) {
+                        contextMenu.dopesheetRoot.applyInterpolationToSelection(2);
+                    }
                     contextMenu.setInterpolationRequested(2);
                 }
             }
@@ -113,6 +119,9 @@ Popup {
                 text: "Linear"
                 onClicked: {
                     contextMenu.close();
+                    if (contextMenu.dopesheetRoot) {
+                        contextMenu.dopesheetRoot.applyInterpolationToSelection(1);
+                    }
                     contextMenu.setInterpolationRequested(1);
                 }
             }
@@ -123,6 +132,9 @@ Popup {
                 text: "Hold"
                 onClicked: {
                     contextMenu.close();
+                    if (contextMenu.dopesheetRoot) {
+                        contextMenu.dopesheetRoot.applyInterpolationToSelection(0);
+                    }
                     contextMenu.setInterpolationRequested(0);
                 }
             }
@@ -133,7 +145,38 @@ Popup {
         }
 
         // =====================================================================
-        // Keyframe Operations
+        // Selection Operations (New!)
+        // =====================================================================
+        ContextMenuRow {
+            visible: contextMenu.activePropertyId.length > 0
+            iconSource: "qrc:/assets/icons/chart-line.svg"
+            text: "Select All in Channel"
+            onClicked: {
+                contextMenu.close();
+                if (contextMenu.dopesheetRoot) {
+                    contextMenu.dopesheetRoot.selectAllInChannel(contextMenu.activeClipId, contextMenu.activePropertyId);
+                }
+            }
+        }
+
+        ContextMenuRow {
+            visible: contextMenu.activeClipId.length > 0
+            iconSource: "qrc:/assets/icons/chart-line.svg"
+            text: "Select All in Clip"
+            onClicked: {
+                contextMenu.close();
+                if (contextMenu.dopesheetRoot) {
+                    contextMenu.dopesheetRoot.selectAllInClip(contextMenu.activeClipId);
+                }
+            }
+        }
+
+        ContextSeparator {
+            visible: contextMenu.activeClipId.length > 0
+        }
+
+        // =====================================================================
+        // Keyframe Operations (Delete / Clear)
         // =====================================================================
         ContextMenuRow {
             visible: contextMenu.hasSelectedKeyframe
@@ -143,16 +186,36 @@ Popup {
             destructive: true
             onClicked: {
                 contextMenu.close();
+                if (contextMenu.dopesheetRoot) {
+                    contextMenu.dopesheetRoot.deleteSelectedKeyframes();
+                }
                 contextMenu.deleteKeyframeRequested();
             }
         }
 
         ContextMenuRow {
+            visible: contextMenu.activePropertyId.length > 0
+            iconSource: "qrc:/assets/icons/trash.svg"
+            text: "Clear Channel Keyframes"
+            destructive: true
+            onClicked: {
+                contextMenu.close();
+                if (contextMenu.dopesheetRoot) {
+                    contextMenu.dopesheetRoot.clearAllInChannel(contextMenu.activeClipId, contextMenu.activePropertyId);
+                }
+            }
+        }
+
+        ContextMenuRow {
+            visible: contextMenu.activeClipId.length > 0
             iconSource: "qrc:/assets/icons/trash.svg"
             text: "Clear All Clip Keyframes"
             destructive: true
             onClicked: {
                 contextMenu.close();
+                if (contextMenu.dopesheetRoot) {
+                    contextMenu.dopesheetRoot.clearAllInClip(contextMenu.activeClipId);
+                }
                 contextMenu.clearAllKeyframesRequested();
             }
         }
@@ -167,7 +230,7 @@ Popup {
             text: "Go to Playhead"
             onClicked: {
                 contextMenu.close();
-                if (contextMenu.dopesheetRoot) {
+                if (contextMenu.dopesheetRoot && typeof contextMenu.dopesheetRoot.centerOnPlayhead === "function") {
                     contextMenu.dopesheetRoot.centerOnPlayhead();
                 }
             }

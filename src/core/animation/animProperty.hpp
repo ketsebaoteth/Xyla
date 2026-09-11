@@ -42,7 +42,7 @@ public:
 
     // Bezier
     const float t = solveBezierT(tNorm, k0.bezier.outX, k1.bezier.inX);
-    const float y = evalBezierY(t, k0.bezier.outY, k1.bezier.inY);
+    const float y = evalBezierY(t, k0.bezier.outY, 1.0f + k1.bezier.inY);
     return lerp(k0.value, k1.value, y);
   }
 
@@ -52,14 +52,20 @@ public:
   [[nodiscard]] bool isAnimated() const noexcept { return m_isAnimated; }
 
   [[nodiscard]] bool hasKeyframe(FrameIndex frame) const noexcept {
-    auto it = std::lower_bound(m_keys.begin(), m_keys.end(), frame);
-    return it != m_keys.end() && it->frame == frame;
+    for (const auto &k : m_keys) {
+      if (k.frame == frame)
+        return true;
+    }
+    return false;
   }
 
   [[nodiscard]] const Keyframe<float> *
   findKeyframe(FrameIndex frame) const noexcept {
-    auto it = std::lower_bound(m_keys.begin(), m_keys.end(), frame);
-    return (it != m_keys.end() && it->frame == frame) ? &(*it) : nullptr;
+    for (const auto &k : m_keys) {
+      if (k.frame == frame)
+        return &k;
+    }
+    return nullptr;
   }
 
   void setKeyframe(FrameIndex frame, float value,
@@ -77,13 +83,15 @@ public:
   }
 
   bool removeKeyframe(FrameIndex frame) noexcept {
-    auto it = std::lower_bound(m_keys.begin(), m_keys.end(), frame);
-    if (it == m_keys.end() || it->frame != frame)
-      return false;
-    m_keys.erase(it);
-    if (m_keys.empty())
-      m_isAnimated = false;
-    return true;
+    for (auto it = m_keys.begin(); it != m_keys.end(); ++it) {
+      if (it->frame == frame) {
+        m_keys.erase(it);
+        if (m_keys.empty())
+          m_isAnimated = false;
+        return true;
+      }
+    }
+    return false;
   }
 
   bool moveKeyframe(FrameIndex oldFrame, FrameIndex newFrame) {

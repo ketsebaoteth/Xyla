@@ -271,8 +271,10 @@ ApplicationWindow {
             enabled: workspaceRoot.visible && !unsavedDialog.visible && !workspaceTransition.transitioning && sequence !== "" && !workspaceRoot.isEditingText() && (workspaceRoot.activeActionManager ? workspaceRoot.activeActionManager.isEnabled(actionIdentifier) : true)
 
             onActivated: {
+                console.log("[QML Shortcut Fired]", sequence, "-> Action:", actionIdentifier);
                 if (workspaceRoot.activeActionManager) {
-                    workspaceRoot.activeActionManager.triggerAction(actionIdentifier);
+                    var success = workspaceRoot.activeActionManager.triggerAction(actionIdentifier);
+                    console.log("[QML Action Result]:", actionIdentifier, "success =", success);
                 }
             }
         }

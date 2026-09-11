@@ -26,6 +26,12 @@ template <typename T> struct Keyframe {
   }
 
   bool operator<(FrameIndex target) const noexcept { return frame < target; }
+
+  friend bool operator<(FrameIndex target, const Keyframe &kf) noexcept {
+    return target < kf.frame;
+  }
+
+  bool operator==(FrameIndex target) const noexcept { return frame == target; }
 };
 
 } // namespace xyla::anim

@@ -18,6 +18,11 @@ Item {
     property int editingIndex: -1
     property var clipboardAssets: [] // Array of { id: string, isCut: bool }
 
+    HoverHandler {
+        onHoveredChanged: if (hovered && typeof layoutController !== "undefined" && layoutController)
+            layoutController.setActiveDockId("MediaPanel")
+    }
+
     property bool showExtensions: mediaPanelSettings ? mediaPanelSettings.showFileExtensions : true
     property bool isListView: mediaPanelSettings ? (mediaPanelSettings.defaultView.toString().toLowerCase() === "list") : false
     property bool hoverScrubEnabled: mediaPanelSettings ? mediaPanelSettings.hoverScrub : false
@@ -179,7 +184,8 @@ Item {
     }
 
     function triggerItemAnimation(targetIndex) {
-        if (targetIndex < 0) return;
+        if (targetIndex < 0)
+            return;
         var view = panelRoot.isListView ? listView : gridView;
         if (view && view.itemAtIndex) {
             var item = view.itemAtIndex(targetIndex);
@@ -400,7 +406,7 @@ Item {
     //     }
     // }
 
-function applyRubberBandSelection(x1, y1, x2, y2) {
+    function applyRubberBandSelection(x1, y1, x2, y2) {
         if (!panelRoot.activeMediaBinModel)
             return;
         var count = panelRoot.isListView ? listView.count : gridView.count;
@@ -518,10 +524,10 @@ function applyRubberBandSelection(x1, y1, x2, y2) {
             panelRoot.editingIndex = -1;
             if (!panelRoot.activeMediaPool)
                 return;
-            
+
             let pathList = Array.isArray(paths) ? paths : [paths];
             let currentBin = panelRoot.activeMediaBinModel ? panelRoot.activeMediaBinModel.currentBinId : "root";
-            
+
             let validPaths = pathList.map(p => {
                 let cleanPath = p.toString();
                 // Strip file:// prefix if coming from QML dialogs
@@ -541,51 +547,51 @@ function applyRubberBandSelection(x1, y1, x2, y2) {
         }
     }
 
-Connections {
-    target: panelRoot.mediaPanelSettings
+    Connections {
+        target: panelRoot.mediaPanelSettings
 
-    function onDefaultViewChanged() {
-        if (target) {
-            panelRoot.isListView = (target.defaultView.toString().toLowerCase() === "list");
+        function onDefaultViewChanged() {
+            if (target) {
+                panelRoot.isListView = (target.defaultView.toString().toLowerCase() === "list");
+            }
         }
-    }
 
-    function onShowFileExtensionsChanged() {
-        if (target) {
-            panelRoot.showExtensions = target.showFileExtensions;
+        function onShowFileExtensionsChanged() {
+            if (target) {
+                panelRoot.showExtensions = target.showFileExtensions;
+            }
         }
-    }
 
-    function onHoverScrubChanged() {
-        if (target) {
-            panelRoot.hoverScrubEnabled = target.hoverScrub;
+        function onHoverScrubChanged() {
+            if (target) {
+                panelRoot.hoverScrubEnabled = target.hoverScrub;
+            }
         }
-    }
 
-    function onShowWaveformsChanged() {
-        if (target) {
-            panelRoot.showWaveforms = target.showWaveforms;
+        function onShowWaveformsChanged() {
+            if (target) {
+                panelRoot.showWaveforms = target.showWaveforms;
+            }
         }
-    }
 
-    function onShowTooltipsChanged() {
-        if (target) {
-            panelRoot.showTooltips = target.showTooltips;
+        function onShowTooltipsChanged() {
+            if (target) {
+                panelRoot.showTooltips = target.showTooltips;
+            }
         }
-    }
 
-    function onSortModeChanged() {
-        if (target && target.sortMode) {
-            var idx = sortComboBox.model.indexOf(target.sortMode);
-            if (idx >= 0) {
-                sortComboBox.currentIndex = idx;
-                if (panelRoot.activeMediaBinModel) {
-                    panelRoot.activeMediaBinModel.setSortRole(idx);
+        function onSortModeChanged() {
+            if (target && target.sortMode) {
+                var idx = sortComboBox.model.indexOf(target.sortMode);
+                if (idx >= 0) {
+                    sortComboBox.currentIndex = idx;
+                    if (panelRoot.activeMediaBinModel) {
+                        panelRoot.activeMediaBinModel.setSortRole(idx);
+                    }
                 }
             }
         }
     }
-}
 
     Shortcut {
         sequence: "Ctrl+R"
@@ -594,7 +600,7 @@ Connections {
         context: Qt.WidgetWithChildrenShortcut
         onActivated: {
             contextMenu.close();
-            contextMenu.renameRequested()
+            contextMenu.renameRequested();
         }
     }
 
@@ -606,7 +612,7 @@ Connections {
         context: Qt.WidgetWithChildrenShortcut
         onActivated: {
             contextMenu.close();
-            contextMenu.duplicateRequested()
+            contextMenu.duplicateRequested();
         }
     }
 
@@ -616,7 +622,7 @@ Connections {
         // enabled: panelRoot.activeFocusItem
         onActivated: {
             contextMenu.close();
-            contextMenu.newFolderRequested()
+            contextMenu.newFolderRequested();
         }
     }
 
@@ -626,7 +632,7 @@ Connections {
         context: Qt.WidgetWithChildrenShortcut
         onActivated: {
             contextMenu.close();
-            contextMenu.selectAllRequested()
+            contextMenu.selectAllRequested();
         }
     }
 
@@ -646,7 +652,7 @@ Connections {
         context: Qt.WidgetWithChildrenShortcut
         onActivated: {
             contextMenu.close();
-            contextMenu.copyRequested()
+            contextMenu.copyRequested();
         }
     }
 
@@ -656,7 +662,7 @@ Connections {
         context: Qt.WidgetWithChildrenShortcut
         onActivated: {
             contextMenu.close();
-            contextMenu.pasteRequested()
+            contextMenu.pasteRequested();
         }
     }
 
@@ -666,7 +672,7 @@ Connections {
         context: Qt.WidgetWithChildrenShortcut
         onActivated: {
             contextMenu.close();
-            contextMenu.cutRequested()
+            contextMenu.cutRequested();
         }
     }
 
@@ -685,7 +691,6 @@ Connections {
             panelRoot.clipboardAssets = panelRoot.buildClipboardFromSelection(false);
         }
         onPasteRequested: {
-
             panelRoot.editingIndex = -1;
             if (!panelRoot.activeMediaBinModel || panelRoot.clipboardAssets.length === 0)
                 return;
@@ -970,7 +975,7 @@ Connections {
 
     // Properties Popup (Studio Inspector)
     XylaPropertiesDialog {
-      id: propertiesPopup
+        id: propertiesPopup
     }
 
     // Panel Background
@@ -988,66 +993,66 @@ Connections {
         isListView: panelRoot.isListView
         gridCellSize: panelRoot.gridCellSize
 
-onViewModeChanged: function (isListView) {
-    panelRoot.isListView = isListView;
-    if (panelRoot.mediaPanelSettings) {
-        panelRoot.mediaPanelSettings.defaultView = isListView ? "list" : "grid";
-    }
-}
+        onViewModeChanged: function (isListView) {
+            panelRoot.isListView = isListView;
+            if (panelRoot.mediaPanelSettings) {
+                panelRoot.mediaPanelSettings.defaultView = isListView ? "list" : "grid";
+            }
+        }
 
-onGridCellSizeChanged: {
-    if (settingsPopup.gridCellSize > 0) {
-        panelRoot.gridCellSize = settingsPopup.gridCellSize;
-    }
-}
+        onGridCellSizeChanged: {
+            if (settingsPopup.gridCellSize > 0) {
+                panelRoot.gridCellSize = settingsPopup.gridCellSize;
+            }
+        }
 
-onHoverScrubToggled: function (enabled) {
-    panelRoot.hoverScrubEnabled = enabled;
-    if (panelRoot.mediaPanelSettings) {
-        panelRoot.mediaPanelSettings.hoverScrub = enabled;
-    }
-}
+        onHoverScrubToggled: function (enabled) {
+            panelRoot.hoverScrubEnabled = enabled;
+            if (panelRoot.mediaPanelSettings) {
+                panelRoot.mediaPanelSettings.hoverScrub = enabled;
+            }
+        }
 
-onShowWaveformsToggled: function (enabled) {
-    panelRoot.showWaveforms = enabled;
-    if (panelRoot.mediaPanelSettings) {
-        panelRoot.mediaPanelSettings.showWaveforms = enabled;
-    }
-}
+        onShowWaveformsToggled: function (enabled) {
+            panelRoot.showWaveforms = enabled;
+            if (panelRoot.mediaPanelSettings) {
+                panelRoot.mediaPanelSettings.showWaveforms = enabled;
+            }
+        }
 
-onShowExtensionsToggled: function (enabled) {
-    panelRoot.showExtensions = enabled;
-    if (panelRoot.mediaPanelSettings) {
-        panelRoot.mediaPanelSettings.showFileExtensions = enabled;
-    }
-}
+        onShowExtensionsToggled: function (enabled) {
+            panelRoot.showExtensions = enabled;
+            if (panelRoot.mediaPanelSettings) {
+                panelRoot.mediaPanelSettings.showFileExtensions = enabled;
+            }
+        }
 
-onGroupByMediaTypeRequested: {
-    if (panelRoot.activeMediaBinModel) {
-        panelRoot.activeMediaBinModel.groupByMediaType();
-    }
-}
+        onGroupByMediaTypeRequested: {
+            if (panelRoot.activeMediaBinModel) {
+                panelRoot.activeMediaBinModel.groupByMediaType();
+            }
+        }
 
-onSortOrderChanged: function (field, ascending) {
-    if (!panelRoot.activeMediaBinModel)
-        return;
+        onSortOrderChanged: function (field, ascending) {
+            if (!panelRoot.activeMediaBinModel)
+                return;
 
-    var roleIndex = 0;
-    if (field.toLowerCase() === "duration")
-        roleIndex = 1;
-    else if (field.toLowerCase() === "path" || field.toLowerCase() === "type")
-        roleIndex = 2;
+            var roleIndex = 0;
+            if (field.toLowerCase() === "duration")
+                roleIndex = 1;
+            else if (field.toLowerCase() === "path" || field.toLowerCase() === "type")
+                roleIndex = 2;
 
-    panelRoot.activeMediaBinModel.setSortRole(roleIndex);
-    panelRoot.activeMediaBinModel.setSortAscending(ascending);
-    
-    if (panelRoot.mediaPanelSettings) {
-        panelRoot.mediaPanelSettings.sortMode = field;
-    }
+            panelRoot.activeMediaBinModel.setSortRole(roleIndex);
+            panelRoot.activeMediaBinModel.setSortAscending(ascending);
 
-    sortComboBox.currentIndex = roleIndex;
-    sortOrderToggle.isAscending = ascending;
-}
+            if (panelRoot.mediaPanelSettings) {
+                panelRoot.mediaPanelSettings.sortMode = field;
+            }
+
+            sortComboBox.currentIndex = roleIndex;
+            sortOrderToggle.isAscending = ascending;
+        }
     }
 
     // Mouse-Following Miniature Drag Follower
@@ -1217,65 +1222,65 @@ onSortOrderChanged: function (field, ascending) {
 
             // Sort Select Dropdown
             XylaSelect {
-    id: sortComboBox
+                id: sortComboBox
 
-    // Layout.preferredWidth: 95
-    // implicitHeight: 30
+                // Layout.preferredWidth: 95
+                // implicitHeight: 30
 
-    icon: "qrc:/assets/icons/sort.svg"
-    activeFocusOnTab: false
+                icon: "qrc:/assets/icons/sort.svg"
+                activeFocusOnTab: false
 
-    model: ["Name", "Duration", "Path"]
+                model: ["Name", "Duration", "Path"]
 
-currentIndex: {
-    var settings = panelRoot.mediaPanelSettings;
-    if (!settings || !settings.sortMode)
-        return 0;
+                currentIndex: {
+                    var settings = panelRoot.mediaPanelSettings;
+                    if (!settings || !settings.sortMode)
+                        return 0;
 
-    var idx = model.indexOf(settings.sortMode);
-    return idx >= 0 ? idx : 0;
-}
+                    var idx = model.indexOf(settings.sortMode);
+                    return idx >= 0 ? idx : 0;
+                }
 
-onActivated: function (index) {
-    panelRoot.editingIndex = -1;
+                onActivated: function (index) {
+                    panelRoot.editingIndex = -1;
 
-    if (panelRoot.mediaPanelSettings) {
-        panelRoot.mediaPanelSettings.sortMode = model[index];
-    }
+                    if (panelRoot.mediaPanelSettings) {
+                        panelRoot.mediaPanelSettings.sortMode = model[index];
+                    }
 
-    if (panelRoot.activeMediaBinModel) {
-        panelRoot.activeMediaBinModel.setSortRole(index);
-    }
-}
-    // currentIndex: {
-    //     if (!panelRoot.activeMediaBinModel ||
-    //         !panelRoot.activeMediaBinModel.mediaPanelSettings)
-    //         return 0;
-    //
-    //     var mode =
-    //         panelRoot.activeMediaBinModel.mediaPanelSettings.sortMode;
-    //
-    //     return model.indexOf(mode) >= 0
-    //             ? model.indexOf(mode)
-    //             : 0;
-    // }
-    //
-    // onActivated: function (index) {
-    //     panelRoot.editingIndex = -1;
-    //
-    //     if (!panelRoot.activeMediaBinModel)
-    //         return;
-    //
-    //     var settings =
-    //         panelRoot.activeMediaBinModel.mediaPanelSettings;
-    //
-    //     if (settings)
-    //         settings.sortMode = model[index];
-    //
-    //     // Keep the actual model sorting in sync.
-    //     panelRoot.activeMediaBinModel.setSortRole(index);
-    // }
-}
+                    if (panelRoot.activeMediaBinModel) {
+                        panelRoot.activeMediaBinModel.setSortRole(index);
+                    }
+                }
+                // currentIndex: {
+                //     if (!panelRoot.activeMediaBinModel ||
+                //         !panelRoot.activeMediaBinModel.mediaPanelSettings)
+                //         return 0;
+                //
+                //     var mode =
+                //         panelRoot.activeMediaBinModel.mediaPanelSettings.sortMode;
+                //
+                //     return model.indexOf(mode) >= 0
+                //             ? model.indexOf(mode)
+                //             : 0;
+                // }
+                //
+                // onActivated: function (index) {
+                //     panelRoot.editingIndex = -1;
+                //
+                //     if (!panelRoot.activeMediaBinModel)
+                //         return;
+                //
+                //     var settings =
+                //         panelRoot.activeMediaBinModel.mediaPanelSettings;
+                //
+                //     if (settings)
+                //         settings.sortMode = model[index];
+                //
+                //     // Keep the actual model sorting in sync.
+                //     panelRoot.activeMediaBinModel.setSortRole(index);
+                // }
+            }
             // XylaSelect {
             //     id: sortComboBox
             //     // Layout.preferredWidth: 95
@@ -1326,77 +1331,77 @@ onActivated: function (index) {
             }
 
             // Segmented Toggle (List / Grid)
-XylaSegmentedToggle {
-    id: viewModeToggle
+            XylaSegmentedToggle {
+                id: viewModeToggle
 
-    // implicitHeight: 30
+                // implicitHeight: 30
 
-    options: [
-        {
-            icon: "qrc:/assets/icons/list.svg",
-            value: "list"
-        },
-        {
-            icon: "qrc:/assets/icons/layout-grid.svg",
-            value: "grid"
-        }
-    ]
+                options: [
+                    {
+                        icon: "qrc:/assets/icons/list.svg",
+                        value: "list"
+                    },
+                    {
+                        icon: "qrc:/assets/icons/layout-grid.svg",
+                        value: "grid"
+                    }
+                ]
 
-    // Declarative binding to root UI state
-    currentIndex: panelRoot.isListView ? 0 : 1
+                // Declarative binding to root UI state
+                currentIndex: panelRoot.isListView ? 0 : 1
 
-    onOptionSelected: (index, value) => {
-        panelRoot.editingIndex = -1;
+                onOptionSelected: (index, value) => {
+                    panelRoot.editingIndex = -1;
 
-        var isList = (value === "list");
-        panelRoot.isListView = isList;
+                    var isList = (value === "list");
+                    panelRoot.isListView = isList;
 
-        if (panelRoot.mediaPanelSettings) {
-            panelRoot.mediaPanelSettings.defaultView = value;
-        }
-    }
-}
-// XylaSegmentedToggle {
-//     id: viewModeToggle
-//
-//     implicitHeight: 30
-//
-//     options: [
-//         {
-//             icon: "qrc:/assets/icons/list.svg",
-//             value: "list"
-//         },
-//         {
-//             icon: "qrc:/assets/icons/layout-grid.svg",
-//             value: "grid"
-//         }
-//     ]
-//
-//     currentIndex: {
-//         if (!panelRoot.activeMediaBinModel ||
-//             !panelRoot.activeMediaBinModel.mediaPanelSettings)
-//             return panelRoot.isListView ? 0 : 1;
-//
-//         return panelRoot.activeMediaBinModel.mediaPanelSettings.defaultView === "list"
-//                 ? 0
-//                 : 1;
-//     }
-//
-//     onOptionSelected: (index, value) => {
-//         panelRoot.editingIndex = -1;
-//
-//         panelRoot.isListView = (value === "list");
-//
-//         if (!panelRoot.activeMediaBinModel)
-//             return;
-//
-//         var settings =
-//             panelRoot.activeMediaBinModel.mediaPanelSettings;
-//
-//         if (settings)
-//             settings.defaultView = value;
-//     }
-// }
+                    if (panelRoot.mediaPanelSettings) {
+                        panelRoot.mediaPanelSettings.defaultView = value;
+                    }
+                }
+            }
+            // XylaSegmentedToggle {
+            //     id: viewModeToggle
+            //
+            //     implicitHeight: 30
+            //
+            //     options: [
+            //         {
+            //             icon: "qrc:/assets/icons/list.svg",
+            //             value: "list"
+            //         },
+            //         {
+            //             icon: "qrc:/assets/icons/layout-grid.svg",
+            //             value: "grid"
+            //         }
+            //     ]
+            //
+            //     currentIndex: {
+            //         if (!panelRoot.activeMediaBinModel ||
+            //             !panelRoot.activeMediaBinModel.mediaPanelSettings)
+            //             return panelRoot.isListView ? 0 : 1;
+            //
+            //         return panelRoot.activeMediaBinModel.mediaPanelSettings.defaultView === "list"
+            //                 ? 0
+            //                 : 1;
+            //     }
+            //
+            //     onOptionSelected: (index, value) => {
+            //         panelRoot.editingIndex = -1;
+            //
+            //         panelRoot.isListView = (value === "list");
+            //
+            //         if (!panelRoot.activeMediaBinModel)
+            //             return;
+            //
+            //         var settings =
+            //             panelRoot.activeMediaBinModel.mediaPanelSettings;
+            //
+            //         if (settings)
+            //             settings.defaultView = value;
+            //     }
+            // }
             // XylaSegmentedToggle {
             //     id: viewModeToggle
             //     implicitHeight: 30
@@ -1448,1981 +1453,1979 @@ XylaSegmentedToggle {
             }
             // Search Toggle Button
 
-
-
-XylaIconButton {
-    id: searchBtn
-    // implicitWidth: 30
-    // implicitHeight: 30
-    iconSource: "qrc:/assets/icons/search.svg"
-    primary: searchPopup.opened || (searchInput.text !== "")
+            XylaIconButton {
+                id: searchBtn
+                // implicitWidth: 30
+                // implicitHeight: 30
+                iconSource: "qrc:/assets/icons/search.svg"
+                primary: searchPopup.opened || (searchInput.text !== "")
                 tooltip: "Search assets"
 
-    onClicked: {
-        panelRoot.editingIndex = -1;
-        if (searchPopup.opened) {
-            searchPopup.close();
-        } else {
-            searchPopup.open();
-        }
-    }
-
-    Popup {
-        id: searchPopup
-        y: searchBtn.height + 6
-        x: searchBtn.width - width
-        width: 360
-        height: 34
-        padding: 0
-        modal: false
-        focus: false
-        closePolicy: Popup.CloseOnPressOutsideParent | Popup.CloseOnEscape
-
-        // Synchronize with model's globalSearch property
-        property bool globalSearch: (panelRoot.activeMediaBinModel ? panelRoot.activeMediaBinModel.globalSearch : true)
-
-        onOpened: searchInput.forceActiveFocus()
-        onAboutToHide: searchInput.focus = false
-
-        background: Rectangle {
-            color: "#181818"
-            border.color: searchInput.activeFocus ? (panelRoot.activeMediaBinModel.globalSearch ? "#8555D3" : panelRoot.accentColor) : "#2e2e30"
-            border.width: 1
-            radius: 7
-
-            // Animate any change to the border.color property
-            Behavior on border.color {
-                ColorAnimation {
-                    duration: 200 // Time in milliseconds for the transition
-                    easing.type: Easing.InOutQuad // Smooth acceleration and deceleration
-                }
-            }
-
-            layer.enabled: true
-            layer.effect: MultiEffect {
-                shadowEnabled: true
-                shadowColor: "#90000000"
-                shadowBlur: 0.65
-                shadowVerticalOffset: 6
-            }
-        }
-
-        enter: Transition {
-            NumberAnimation {
-                property: "opacity"
-                from: 0.0
-                to: 1.0
-                duration: 140
-                easing.type: Easing.OutCubic
-            }
-            NumberAnimation {
-                property: "scale"
-                from: 0.95
-                to: 1.0
-                duration: 160
-                easing.type: Easing.OutCubic
-            }
-        }
-
-        exit: Transition {
-            NumberAnimation {
-                property: "opacity"
-                from: 1.0
-                to: 0.0
-                duration: 110
-                easing.type: Easing.OutCubic
-            }
-            NumberAnimation {
-                property: "scale"
-                from: 1.0
-                to: 0.95
-                duration: 110
-                easing.type: Easing.OutCubic
-            }
-        }
-
-        contentItem: RowLayout {
-            anchors.fill: parent
-            anchors.leftMargin: 8
-            anchors.rightMargin: 8
-            spacing: 6
-
-            TextField {
-                id: searchInput
-
-                Layout.fillWidth: true
-                Layout.fillHeight: true
-
-                placeholderText: (searchPopup.globalSearch || panelRoot.isListView)
-                                 ? "Search everywhere..."
-                                 : "Search this folder..."
-
-                placeholderTextColor: "#606060"
-                color: "#ffffff"
-                font.pixelSize: 11
-
-                background: Item {}
-
-                selectByMouse: true
-                focus: true
-                activeFocusOnTab: false
-
-                // Preserved exact focus lock fix
-                onActiveFocusChanged: {
-                    if (!activeFocus &&
-                        searchPopup.opened &&
-                        panelRoot.editingIndex === -1) {
-                        searchInput.forceActiveFocus();
+                onClicked: {
+                    panelRoot.editingIndex = -1;
+                    if (searchPopup.opened) {
+                        searchPopup.close();
+                    } else {
+                        searchPopup.open();
                     }
                 }
 
-                onTextChanged: searchDebounce.restart()
+                Popup {
+                    id: searchPopup
+                    y: searchBtn.height + 6
+                    x: searchBtn.width - width
+                    width: 360
+                    height: 34
+                    padding: 0
+                    modal: false
+                    focus: false
+                    closePolicy: Popup.CloseOnPressOutsideParent | Popup.CloseOnEscape
 
-                Timer {
-                    id: searchDebounce
-                    interval: 50
-                    repeat: false
+                    // Synchronize with model's globalSearch property
+                    property bool globalSearch: (panelRoot.activeMediaBinModel ? panelRoot.activeMediaBinModel.globalSearch : true)
 
-                    onTriggered: {
-                        if (panelRoot.activeMediaBinModel) {
-                            panelRoot.activeMediaBinModel.searchFilter = searchInput.text;
-                        }
-                    }
-                }
+                    onOpened: searchInput.forceActiveFocus()
+                    onAboutToHide: searchInput.focus = false
 
-                Keys.onEscapePressed: {
-                    text = "";
-                    if (panelRoot.activeMediaBinModel) {
-                        panelRoot.activeMediaBinModel.searchFilter = "";
-                    }
-                    searchPopup.close();
-                }
+                    background: Rectangle {
+                        color: "#181818"
+                        border.color: searchInput.activeFocus ? (panelRoot.activeMediaBinModel.globalSearch ? "#8555D3" : panelRoot.accentColor) : "#2e2e30"
+                        border.width: 1
+                        radius: 7
 
-                Keys.onReturnPressed: event => {
-                    searchPopup.close();
-                    event.accepted = true;
-                }
-
-                Keys.onEnterPressed: event => {
-                    searchPopup.close();
-                    event.accepted = true;
-                }
-            }
-
-            // Quick clear button ('✕')
-            Rectangle {
-                Layout.preferredWidth: 18
-                Layout.preferredHeight: 18
-                radius: 9
-                color: clearMouse.containsMouse ? "#28282b" : "#181818"
-                opacity: searchInput.text.length > 0
-
-                Behavior on opacity { NumberAnimation { duration: 140; easing.type: Easing.OutCubic } }
-                Behavior on color { ColorAnimation { duration: 140; easing.type: Easing.OutCubic } }
-
-                Text {
-                    anchors.centerIn: parent
-                    text: "✕"
-                    color: clearMouse.containsMouse ? "#ffffff" : "#777777"
-                    Behavior on color { ColorAnimation { duration: 140; easing.type: Easing.OutCubic } }
-                    font.pixelSize: 10
-                }
-
-                MouseArea {
-                    id: clearMouse
-                    anchors.fill: parent
-                    hoverEnabled: true
-                    cursorShape: Qt.PointingHandCursor
-                    onClicked: {
-                        searchInput.text = "";
-                        if (panelRoot.activeMediaBinModel) {
-                            panelRoot.activeMediaBinModel.searchFilter = "";
-                        }
-                        searchInput.forceActiveFocus();
-                    }
-                }
-            }
-
-            // Search scope toggle (Visible in Grid View where folders exist)
-            Rectangle {
-                id: searchScopeButton
-                visible: !panelRoot.isListView
-                Layout.preferredWidth: scopeRow.implicitWidth + 12
-                Layout.preferredHeight: 24
-                radius: 6
-
-                color: scopeMouse.pressed
-                       ? "#303033"
-                       : scopeMouse.containsMouse
-                         ? "#28282b"
-                         : "#181818"
-
-                Behavior on color {
-                    ColorAnimation {
-                        duration: scopeMouse.pressed ? 80 : 140
-                        easing.type: scopeMouse.pressed ? Easing.OutQuad : Easing.OutCubic
-                    }
-                }
-
-                Row {
-                    id: scopeRow
-                    anchors.centerIn: parent
-                    spacing: 4
-
-                    Image {
-                        anchors.verticalCenter: parent.verticalCenter
-                        width: 13
-                        height: 13
-                        sourceSize: Qt.size(13, 13)
-                        fillMode: Image.PreserveAspectFit
-                        source: searchPopup.globalSearch
-                                // FIX: Icon
-                                ? "qrc:/assets/icons/folder.svg"
-                                : "qrc:/assets/icons/clear-all.svg"
-                        opacity: scopeMouse.containsMouse ? 1.0 : 0.65
-                    }
-
-                    Text {
-                        anchors.verticalCenter: parent.verticalCenter
-                        text: searchPopup.globalSearch ? "This folder" : "Everywhere"
-                        color: scopeMouse.containsMouse ? "#ffffff" : "#989898"
-                        font.pixelSize: 10
-                        font.weight: Font.Medium
-                        width: implicitWidth
-
-                        // Animate the text color change
-                        Behavior on color {
+                        // Animate any change to the border.color property
+                        Behavior on border.color {
                             ColorAnimation {
-                                duration: 140
-                                easing.type: Easing.OutCubic
+                                duration: 200 // Time in milliseconds for the transition
+                                easing.type: Easing.InOutQuad // Smooth acceleration and deceleration
                             }
                         }
 
-                        // Animate the width change when the text string changes
-                        Behavior on width {
-                            NumberAnimation {
-                                duration: 200 // Slightly longer than color for a smoother layout shift
-                                easing.type: Easing.InOutQuad
-                            }
+                        layer.enabled: true
+                        layer.effect: MultiEffect {
+                            shadowEnabled: true
+                            shadowColor: "#90000000"
+                            shadowBlur: 0.65
+                            shadowVerticalOffset: 6
                         }
                     }
-                }
 
-                MouseArea {
-                    id: scopeMouse
-                    anchors.fill: parent
-                    hoverEnabled: true
-                    cursorShape: Qt.PointingHandCursor
-
-                    onClicked: {
-                        var nextState = !searchPopup.globalSearch;
-                        searchPopup.globalSearch = nextState;
-
-                        if (panelRoot.activeMediaBinModel) {
-                            panelRoot.activeMediaBinModel.globalSearch = nextState;
-                        }
-
-                        searchInput.forceActiveFocus();
-                    }
-                }
-            }
-        }
-    }
-}
-//             XylaIconButton {
-//                 id: searchBtn
-//                 implicitWidth: 30
-//                 implicitHeight: 30
-//                 iconSource: "qrc:/assets/icons/search.svg"
-//                 primary: searchPopup.opened || (searchInput.text !== "")
-//
-//                 onClicked: {
-//                     panelRoot.editingIndex = -1;
-//                     if (searchPopup.opened) {
-//                         searchPopup.close();
-//                     } else {
-//                         searchPopup.open();
-//                     }
-//                 }
-//
-//                 Popup {
-//                     id: searchPopup
-//                     y: searchBtn.height + 6
-//                     x: searchBtn.width - (width)
-//                     property bool globalSearch: false
-//                     width: 330
-//                     height: 34
-//                     padding: 0
-//                     modal: false
-//                     focus: false
-//                     closePolicy: Popup.CloseOnPressOutsideParent | Popup.CloseOnEscape
-//
-//                     onOpened: searchInput.forceActiveFocus()
-//                     onAboutToHide: searchInput.focus = false
-//
-//                     background: Rectangle {
-//                         color: "#181818"
-//                         border.color: searchInput.activeFocus ? panelRoot.accentColor : "#2e2e30"
-//                         border.width: 1
-//                         radius: 6
-//
-//                         layer.enabled: true
-//                         layer.effect: MultiEffect {
-//                             shadowEnabled: true
-//                             shadowColor: "#90000000"
-//                             shadowBlur: 0.65
-//                             shadowVerticalOffset: 6
-//                         }
-//                     }
-//
-//                     enter: Transition {
-//                         NumberAnimation {
-//                             property: "opacity"
-//                             from: 0.0
-//                             to: 1.0
-//                             duration: 140
-//                             easing.type: Easing.OutCubic
-//                         }
-//                         NumberAnimation {
-//                             property: "scale"
-//                             from: 0.95
-//                             to: 1.0
-//                             duration: 160
-//                             easing.type: Easing.OutCubic
-//                         }
-//                     }
-//
-//                     exit: Transition {
-//                         NumberAnimation {
-//                             property: "opacity"
-//                             from: 1.0
-//                             to: 0.0
-//                             duration: 110
-//                             easing.type: Easing.OutCubic
-//                         }
-//                         NumberAnimation {
-//                             property: "scale"
-//                             from: 1.0
-//                             to: 0.95
-//                             duration: 110
-//                             easing.type: Easing.OutCubic
-//                         }
-//                     }
-//
-// contentItem: RowLayout {
-//     anchors.fill: parent
-//
-//     anchors.leftMargin: 8
-//     anchors.rightMargin: 8
-//
-//     spacing: 4
-//
-//     TextField {
-//         id: searchInput
-//
-//         Layout.fillWidth: true
-//         Layout.fillHeight: true
-//
-//         placeholderText: searchPopup.globalSearch
-//                          ? "Search everywhere..."
-//                          : "Search this folder..."
-//
-//         placeholderTextColor: "#606060"
-//         color: "#ffffff"
-//
-//         font.pixelSize: 11
-//
-//         background: Item {}
-//
-//         selectByMouse: true
-//         focus: true
-//         activeFocusOnTab: false
-//
-//         onActiveFocusChanged: {
-//             if (!activeFocus &&
-//                 searchPopup.opened &&
-//                 panelRoot.editingIndex === -1) {
-//                 searchInput.forceActiveFocus();
-//             }
-//         }
-//
-//         onTextChanged: searchDebounce.restart()
-//
-//         Timer {
-//             id: searchDebounce
-//
-//             interval: 50
-//             repeat: false
-//
-//             onTriggered: {
-//                 if (searchPopup.globalSearch) {
-//                     // GLOBAL SEARCH
-//                     // Connect this to your global-search implementation.
-//                     panelRoot.performGlobalSearch(searchInput.text);
-//                 } else {
-//                     // CURRENT FOLDER SEARCH
-//                     if (panelRoot.activeMediaBinModel) {
-//                         panelRoot.activeMediaBinModel.searchFilter =
-//                                 searchInput.text;
-//                     }
-//                 }
-//             }
-//         }
-//
-//         Keys.onEscapePressed: {
-//             text = "";
-//
-//             if (panelRoot.activeMediaBinModel) {
-//                 panelRoot.activeMediaBinModel.searchFilter = "";
-//             }
-//
-//             searchPopup.close();
-//         }
-//
-//         Keys.onReturnPressed: event => {
-//             searchPopup.close();
-//             event.accepted = true;
-//         }
-//
-//         Keys.onEnterPressed: event => {
-//             searchPopup.close();
-//             event.accepted = true;
-//         }
-//     }
-//
-//     // Search scope toggle
-// Rectangle {
-//     id: searchScopeButton
-//
-//     implicitWidth: scopeRow.implicitWidth + 10
-//     implicitHeight: 24
-//     radius: 5
-//
-//     color: mouseArea.pressed
-//            ? "#303033"
-//            : mouseArea.containsMouse
-//              ? "#28282b"
-//              : "transparent"
-//
-//     Behavior on color {
-//         ColorAnimation {
-//             duration: mouseArea.pressed ? 80 : 140
-//             easing.type: mouseArea.pressed
-//                        ? Easing.OutQuad
-//                        : Easing.OutCubic
-//         }
-//     }
-//
-//     Row {
-//         id: scopeRow
-//
-//         anchors.centerIn: parent
-//         spacing: 5
-//
-//         Image {
-//             id: scopeIcon
-//
-//             width: 16
-//             height: 16
-//
-//             source: searchPopup.globalSearch
-//                     ? "qrc:/assets/icons/globe.svg"
-//                     : "qrc:/assets/icons/folder.svg"
-//
-//             sourceSize: Qt.size(16, 16)
-//             fillMode: Image.PreserveAspectFit
-//             visible: false
-//         }
-//
-//         MultiEffect {
-//             source: scopeIcon
-//             anchors.fill: scopeIcon
-//
-//             colorization: 1.0
-//             colorizationColor: mouseArea.containsMouse
-//                               ? "#ffffff"
-//                               : "#989898"
-//
-//             Behavior on colorizationColor {
-//                 ColorAnimation {
-//                     duration: 140
-//                     easing.type: Easing.OutCubic
-//                 }
-//             }
-//         }
-//
-//         Text {
-//             text: searchPopup.globalSearch
-//                   ? "Everywhere"
-//                   : "Current folder"
-//
-//             color: mouseArea.containsMouse
-//                    ? "#ffffff"
-//                    : "#989898"
-//
-//             font.pixelSize: 11
-//
-//             Behavior on color {
-//                 ColorAnimation {
-//                     duration: 140
-//                     easing.type: Easing.OutCubic
-//                 }
-//             }
-//         }
-//     }
-//
-//     MouseArea {
-//         id: mouseArea
-//
-//         anchors.fill: parent
-//         cursorShape: Qt.PointingHandCursor
-//
-//         onPressed: searchScopeButton.scale = 0.92
-//         onReleased: searchScopeButton.scale = 1.0
-//         onCanceled: searchScopeButton.scale = 1.0
-//
-//         onClicked: {
-//             searchPopup.globalSearch = !searchPopup.globalSearch
-//
-//             searchInput.text = ""
-//
-//             if (panelRoot.activeMediaBinModel) {
-//                 panelRoot.activeMediaBinModel.searchFilter = ""
-//             }
-//
-//             searchInput.forceActiveFocus()
-//         }
-//     }
-//
-//     Behavior on scale {
-//         NumberAnimation {
-//             duration: mouseArea.pressed ? 80 : 160
-//             easing.type: mouseArea.pressed
-//                        ? Easing.OutQuad
-//                        : Easing.OutBack
-//             easing.overshoot: 1.3
-//         }
-//     }
-// }
-//
-//     // Quick clear button
-//     Text {
-//         text: "✕"
-//
-//         color: "#777777"
-//         font.pixelSize: 11
-//
-//         visible: searchInput.text.length > 0
-//
-//         MouseArea {
-//             anchors.fill: parent
-//
-//             cursorShape: Qt.PointingHandCursor
-//
-//             onClicked: {
-//                 searchInput.text = "";
-//             }
-//         }
-//     }
-// }
-//                 }
-//             }
-
-                    }
-
-                    // Drop Area & Media Container
-                    Item {
-                        Layout.fillWidth: true
-                        Layout.fillHeight: true
-
-                        // External OS files drop area
-                        DropArea {
-                            id: dropArea
-                            anchors.fill: parent
-
-                            onEntered: function (drag) {
-                                if (drag.source !== null) {
-                                    drag.accepted = false;
-                                    return;
-                                }
-                                drag.accept(Qt.CopyAction);
-                            }
-
-                            onDropped: function (drop) {
-                                panelRoot.editingIndex = -1;
-                                if (drop.source !== null)
-                                    return;
-                                drop.accept(Qt.CopyAction);
-
-                                if (!drop.hasUrls || drop.urls.length === 0 || !panelRoot.activeMediaPool)
-                                    return;
-
-                                var rawPaths = [];
-                                for (let i = 0; i < drop.urls.length; i++) {
-                                    let localPath = panelRoot.urlToLocalPath(drop.urls[i]);
-                                    if (localPath.length > 0)
-                                        rawPaths.push(localPath);
-                                }
-
-                                if (rawPaths.length === 0)
-                                    return;
-
-                                var currentBin = panelRoot.isListView ? "root" : (panelRoot.activeMediaBinModel ? panelRoot.activeMediaBinModel.currentBinId : "root");
-                                panelRoot.activeMediaPool.importFilesAsync(rawPaths, currentBin);
-                            }
-
-                            MouseArea {
-                                id: rubberBandArea
-                                anchors.fill: parent
-                                acceptedButtons: Qt.LeftButton
-                                z: 15
-                                preventStealing: selecting
-                                propagateComposedEvents: true
-
-                                property real startX: 0
-                                property real startY: 0
-                                property bool selecting: false
-
-                                onPressed: function (mouse) {
-                                    startX = mouse.x;
-                                    startY = mouse.y;
-                                    selecting = false;
-                                    panelRoot.editingIndex = -1;
-                                    mouse.accepted = false; // allow clicks to propagate through to items if not dragging
-                                }
-
-                                onPositionChanged: function (mouse) {
-                                    if (!selecting && (Math.abs(mouse.x - startX) > 6 || Math.abs(mouse.y - startY) > 6)) {
-                                        selecting = true;
-                                        if (!(mouse.modifiers & (Qt.ControlModifier | Qt.ShiftModifier | Qt.MetaModifier))) {
-                                            panelRoot.clearSelection();
-                                        }
-                                    }
-                                    if (selecting) {
-                                        let x1 = Math.min(startX, mouse.x), x2 = Math.max(startX, mouse.x);
-                                        let y1 = Math.min(startY, mouse.y), y2 = Math.max(startY, mouse.y);
-                                        selectionRect.x = x1;
-                                        selectionRect.y = y1;
-                                        selectionRect.width = x2 - x1;
-                                        selectionRect.height = y2 - y1;
-
-                                        // Map coordinates to stack view container
-                                        var targetView = panelRoot.isListView ? listView : gridView;
-                                        var localPt1 = mapToItem(targetView, x1, y1);
-                                        var localPt2 = mapToItem(targetView, x2, y2);
-                                        panelRoot.applyRubberBandSelection(localPt1.x, localPt1.y, localPt2.x, localPt2.y);
-                                    }
-                                }
-
-                                onReleased: function (mouse) {
-                                    if (selecting) {
-                                        selecting = false;
-                                        selectionRect.width = 0;
-                                        selectionRect.height = 0;
-                                        mouse.accepted = true;
-                                    } else {
-                                        mouse.accepted = false;
-                                    }
-                                }
-                            }
-
-                            Rectangle {
-                                id: selectionRect
-                                color: "#2a2555D3"
-                                border.color: panelRoot.accentColor
-                                border.width: 1
-                                visible: rubberBandArea.selecting && (width > 2 || height > 2)
-                                z: 20
-                            }
-
-                            Rectangle {
-                                anchors.fill: parent
-                                color: (dropArea.containsDrag && dropArea.drag.source === null) ? "#152555D3" : "transparent"
-                                border.color: (dropArea.containsDrag && dropArea.drag.source === null) ? panelRoot.accentColor : "transparent"
-                                border.width: 1.5
-                                radius: 6
-                                z: 10
-                            }
-
-                            // Stack View: List (Tree) vs Grid
-                            StackLayout {
-                                anchors.fill: parent
-                                currentIndex: panelRoot.isListView ? 0 : 1
-
-                                anchors.topMargin: searchPopup.visible ? 28 : 0
-
-                                Behavior on anchors.topMargin {
-                                    NumberAnimation {
-                                        duration: 180
-                                        easing.type: Easing.OutCubic
-                                    }
-                                }
-
-                                // ================================================================
-                                // TREE HIERARCHY LIST VIEW
-                                // ================================================================
-                                ListView {
-                                    id: listView
-                                    clip: true
-                                    spacing: 2
-                                    model: panelRoot.activeMediaBinModel
-                                    focus: false
-                                    keyNavigationEnabled: false
-                                    activeFocusOnTab: false
-
-                                    // Place inside ListView (replacing TapHandler):
-                                    // MouseArea {
-                                    //     id: listBgMouseArea
-                                    //     anchors.fill: parent
-                                    //     z: -1
-                                    //     acceptedButtons: Qt.LeftButton | Qt.RightButton
-                                    //
-                                    //     onClicked: function (mouse) {
-                                    //         panelRoot.editingIndex = -1;
-                                    //         panelRoot.clearSelection();
-                                    //         if (mouse.button === Qt.RightButton) {
-                                    //             var globalPt = mapToItem(Overlay.overlay, mouse.x, mouse.y);
-                                    //             contextMenu.hasSelection = false;
-                                    //             contextMenu.selectionCount = 0;
-                                    //             contextMenu.selectionIsFolder = false;
-                                    //             contextMenu.canPaste = panelRoot.clipboardAssets.length > 0;
-                                    //             contextMenu.openAt(globalPt.x, globalPt.y);
-                                    //         }
-                                    //     }
-                                    // }
-                                    TapHandler {
-                                        acceptedButtons: Qt.LeftButton | Qt.RightButton
-                                        onTapped: function (eventPoint, button) {
-                                            panelRoot.editingIndex = -1;
-                                            panelRoot.clearSelection();
-                                            if (button === Qt.RightButton) {
-                                                contextMenu.hasSelection = false;
-                                                contextMenu.selectionCount = 0;
-                                                contextMenu.selectionIsFolder = false;
-                                                contextMenu.canPaste = panelRoot.clipboardAssets.length > 0;
-                                                contextMenu.openAt(eventPoint.scenePosition.x, eventPoint.scenePosition.y);
-                                            }
-                                        }
-                                    }
-
-                                    // Item {
-                                    //     id: dragPreview
-                                    //
-                                    //     parent: Overlay.overlay
-                                    //
-                                    //     width: 64
-                                    //     height: 64
-                                    //
-                                    //     visible: false
-                                    //     z: 100000
-                                    //
-                                    //     property bool isFolder: false
-                                    //     property string path: ""
-                                    //
-                                    //     scale: visible ? 1.0 : 0.85
-                                    //
-                                    //     Rectangle {
-                                    //         id: dragPreviewBackground
-                                    //
-                                    //         anchors.fill: parent
-                                    //
-                                    //         radius: 10
-                                    //         color: "#252525"
-                                    //
-                                    //         border.width: 1
-                                    //         border.color: "#404040"
-                                    //
-                                    //         clip: true
-                                    //
-                                    //         Image {
-                                    //             id: dragPreviewImage
-                                    //
-                                    //             anchors.fill: parent
-                                    //             anchors.margins: 8
-                                    //
-                                    //             source: dragPreview.isFolder
-                                    //                     ? "qrc:/assets/icons/folder.svg"
-                                    //                     : (dragPreview.path
-                                    //                        ? "image://thumbnails/"
-                                    //                          + dragPreview.path
-                                    //                          + "?width=120"
-                                    //                        : "qrc:/assets/icons/crop-landscape.svg")
-                                    //
-                                    //             fillMode: Image.PreserveAspectFit
-                                    //             smooth: true
-                                    //
-                                    //             layer.enabled: true
-                                    //
-                                    //             layer.effect: MultiEffect {
-                                    //                 maskEnabled: true
-                                    //
-                                    //                 maskSource: Rectangle {
-                                    //                     width: dragPreviewImage.width
-                                    //                     height: dragPreviewImage.height
-                                    //                     radius: 7
-                                    //                 }
-                                    //             }
-                                    //         }
-                                    //     }
-                                    //
-                                    //     Behavior on scale {
-                                    //         NumberAnimation {
-                                    //             duration: 120
-                                    //             easing.type: Easing.OutCubic
-                                    //         }
-                                    //     }
-                                    // }
-                                    // ADDED: Outer/Background DropArea to catch drops outside any item/folder
-                                    DropArea {
-                                        anchors.fill: parent
-                                        z: -1 // Sits behind delegates
-
-                                        onDropped: function (drop) {
-                                            if (panelRoot.draggedAssetIds.length > 0 && panelRoot.activeMediaBinModel) {
-                                                drop.accept(Qt.MoveAction);
-                                                
-                                                // Pass "" (or null/0) to move items to root
-                                                panelRoot.activeMediaBinModel.moveAssetsById(panelRoot.draggedAssetIds, ""); 
-                                                // panelRoot.clearSelection();
-                                                panelRoot.draggedAssetIds = [];
-                                            }
-                                        }
-                                    }
-
-                                    delegate: Item {
-                                        id: listDelegateContainer
-                                        width: listView.width
-                                        height: model.isFolder ? 32 : 60
-
-                                        readonly property int stepSize: 20
-                                        readonly property int depthVal: model.depth || 0
-                                        readonly property int cardIndent: depthVal * stepSize + (depthVal > 0 ? 6 : 0)
-
-                                        // 1. Initialize to initial animation state so it never "flashes" full opacity first
-                                        property real itemScale: panelRoot.allowEntranceCascade ? 0.90 : 1.0
-                                        property real itemOpacity: panelRoot.allowEntranceCascade ? 0.0 : 1.0
-                                        scale: itemScale
-                                        opacity: itemOpacity
-                                        transformOrigin: Item.Left
-
-                                        // 2. Targeted animation when called directly (pulse/pop in place without vanishing)
-                                        function playEntranceAnim() {
-                                            listTargetedAnim.restart();
-                                        }
-
-                                        function playEntranceAnimWithDelay(delayMs) {
-                                            if (delayMs > 0) {
-                                                animDelayTimer.interval = delayMs;
-                                                animDelayTimer.restart();
-                                            } else {
-                                                playEntranceAnim();
-                                            }
-                                        }
-
-                                        Timer {
-                                            id: animDelayTimer
-                                            repeat: false
-                                            onTriggered: playEntranceAnim()
-                                        }
-
-                                        // 3. Stagger only runs on initial load / view mode switch
-                                        Component.onCompleted: {
-                                            if (panelRoot.editingIndex === index) {
-                                                grabFocus();
-                                                listFocusTimer.restart();
-                                            }
-
-                                            if (panelRoot.allowEntranceCascade) {
-                                                listStaggerTimer.interval = Math.min(index * 20, 240);
-                                                listStaggerTimer.start();
-                                            }
-                                        }
-
-                                        Timer {
-                                            id: listStaggerTimer
-                                            repeat: false
-                                            onTriggered: listEntranceAnim.restart()
-                                        }
-
-                                        // Initial load/mode-switch animation
-                                        ParallelAnimation {
-                                            id: listEntranceAnim
-                                            NumberAnimation {
-                                                target: listDelegateContainer
-                                                property: "itemScale"
-                                                from: 0.90
-                                                to: 1.0
-                                                duration: 180
-                                                easing.type: Easing.OutBack
-                                                easing.overshoot: 1.25
-                                            }
-                                            NumberAnimation {
-                                                target: listDelegateContainer
-                                                property: "itemOpacity"
-                                                from: 0.0
-                                                to: 1.0
-                                                duration: 150
-                                                easing.type: Easing.OutQuad
-                                            }
-                                        }
-
-                                        // Targeted animation for single modified/renamed/added item
-                                        SequentialAnimation {
-                                            id: listTargetedAnim
-                                            NumberAnimation {
-                                                target: listDelegateContainer
-                                                property: "itemScale"
-                                                from: 1.0
-                                                to: 1.04
-                                                duration: 120
-                                                easing.type: Easing.OutQuad
-                                            }
-                                            NumberAnimation {
-                                                target: listDelegateContainer
-                                                property: "itemScale"
-                                                from: 1.04
-                                                to: 1.0
-                                                duration: 160
-                                                easing.type: Easing.InOutQuad
-                                            }
-                                        }
-                                    // delegate: Item {
-                                    //     id: listDelegateContainer
-                                    //     width: listView.width
-                                    //     height: model.isFolder ? 32 : 60
-                                    //
-                                    //     readonly property int stepSize: 20
-                                    //     readonly property int depthVal: model.depth || 0
-                                    //     readonly property int cardIndent: depthVal * stepSize + (depthVal > 0 ? 6 : 0)
-                                    //
-                                    //     property real itemScale: 1.0
-                                    //     property real itemOpacity: 1.0
-                                    //     scale: itemScale
-                                    //     opacity: itemOpacity
-                                    //     transformOrigin: Item.Left
-                                    //
-                                    //     function playEntranceAnim() {
-                                    //         listEntranceAnim.restart();
-                                    //     }
-                                    //
-                                    //     Component.onCompleted: {
-                                    //         // Stagger initial load animation slightly per row
-                                    //         listStaggerTimer.interval = Math.min(index * 20, 240);
-                                    //         listStaggerTimer.start();
-                                    //     }
-                                    //
-                                    //     Timer {
-                                    //         id: listStaggerTimer
-                                    //         repeat: false
-                                    //         onTriggered: listEntranceAnim.restart()
-                                    //     }
-                                    //
-                                    //     ParallelAnimation {
-                                    //         id: listEntranceAnim
-                                    //         NumberAnimation {
-                                    //             target: listDelegateContainer
-                                    //             property: "itemScale"
-                                    //             from: 0.88
-                                    //             to: 1.0
-                                    //             duration: 180
-                                    //             easing.type: Easing.OutBack
-                                    //             easing.overshoot: 1.25
-                                    //         }
-                                    //         NumberAnimation {
-                                    //             target: listDelegateContainer
-                                    //             property: "itemOpacity"
-                                    //             from: 0.0
-                                    //             to: 1.0
-                                    //             duration: 150
-                                    //             easing.type: Easing.OutQuad
-                                    //         }
-                                    //     }
-
-                                        // Full-depth tree hierarchy connector
-                                        Canvas {
-                                            id: treeConnectorCanvas
-                                            visible: depthVal > 0 || (model.isFolder && model.isExpanded)
-                                            width: Math.max(32, cardIndent + 2)
-                                            height: parent.height + listView.spacing
-                                            anchors.left: parent.left
-                                            anchors.top: parent.top
-                                            z: 0
-
-                                            property int curDepth: depthVal
-                                            property bool isExp: model.isExpanded || false
-                                            property bool isLast: model.isLastChild || false
-                                            property int maskVal: model.ancestorMask || 0
-
-                                            onCurDepthChanged: requestPaint()
-                                            onIsExpChanged: requestPaint()
-                                            onIsLastChanged: requestPaint()
-                                            onMaskValChanged: requestPaint()
-                                            Component.onCompleted: requestPaint()
-
-                                            onPaint: {
-                                                var ctx = getContext("2d");
-                                                ctx.reset();
-
-                                                var depth = depthVal;
-                                                var rowH = parent.height;
-                                                var totalH = height;
-                                                var midY = Math.round(rowH / 2);
-                                                var radius = 6;
-                                                var step = stepSize;
-                                                var mask = model.ancestorMask || 0;
-
-                                                ctx.strokeStyle = "#3e3e42";
-                                                ctx.lineWidth = 0.5;
-                                                ctx.beginPath();
-
-                                                // A. Expanded parent folder: vertical spine under chevron
-                                                if (model.isFolder && model.isExpanded) {
-                                                    var fldSpineX = depth * step + 14;
-                                                    ctx.moveTo(fldSpineX, midY + 6);
-                                                    ctx.lineTo(fldSpineX, totalH);
-                                                }
-
-                                                if (depth <= 0) {
-                                                    ctx.stroke();
-                                                    return;
-                                                }
-
-                                                // B. Ancestor pass-through lines
-                                                for (var d = 0; d < depth - 1; d++) {
-                                                    if (mask & (1 << d)) {
-                                                        var spineX = d * step + 14;
-                                                        ctx.moveTo(spineX, 0);
-                                                        ctx.lineTo(spineX, totalH);
-                                                    }
-                                                }
-
-                                                // C. Immediate parent branch line curving into child card with comfortable gap
-                                                var parentSpineX = (depth - 1) * step + 14;
-                                                var isLast = model.isLastChild;
-                                                var targetEndX = cardIndent;
-
-                                                ctx.moveTo(parentSpineX, 0);
-                                                ctx.lineTo(parentSpineX, midY - radius);
-
-                                                // Smooth curved turn with clear spacing into the card
-                                                ctx.quadraticCurveTo(parentSpineX, midY, parentSpineX + radius, midY);
-                                                ctx.lineTo(targetEndX, midY);
-
-                                                // Continue straight down for lower siblings if not last child
-                                                if (!isLast) {
-                                                    ctx.moveTo(parentSpineX, midY - radius);
-                                                    ctx.lineTo(parentSpineX, totalH);
-                                                }
-
-                                                ctx.stroke();
-                                            }
-                                        }
-
-                                        Rectangle {
-                                            id: listDelegateItem
-                                            property int itemIndex: index
-                                            anchors.fill: parent
-                                            anchors.leftMargin: listDelegateContainer.cardIndent
-                                            // anchors.leftMargin: (model.depth || 0) * 16
-                                            anchors.rightMargin: 0
-                                            radius: 5
-                                            color: listDropOnFolder.containsDrag ? "#233554" : (panelRoot.isSelected(index) ? panelRoot.bgCardSelected : (itemMouseArea.containsMouse ? panelRoot.bgCardHover : "#1a1a1c"))
-                                            border.color: listDropOnFolder.containsDrag ? "#4d88e8" : (panelRoot.isSelected(index) ? panelRoot.accentColor : "transparent")
-                                            border.width: 1
-
-                                            Behavior on color {
-                                                ColorAnimation {
-                                                    duration: 150
-                                                    easing.type: Easing.OutCubic
-                                                }
-                                            }
-
-                                            Drag.active: itemMouseArea.drag.active
-                                            Drag.dragType: Drag.Automatic
-                                            Drag.supportedActions: Qt.CopyAction | Qt.MoveAction
-                                            Drag.keys: ["xyla/media-asset", "text/uri-list"]
-                                            Drag.source: listDelegateItem
-                                            Drag.mimeData: {
-                                                "xyla/media-asset": model.id || "",
-                                                "text/uri-list": model.path ? (model.path.startsWith("file://") ? model.path : "file://" + model.path) : ""
-                                            }
-                                            Drag.imageSource: model.isFolder ? "qrc:/assets/icons/folder.svg" : (model.path ? ("image://thumbnails/" + model.path + "?width=40") : "qrc:/assets/icons/crop-landscape.svg")
-                                            Drag.hotSpot.x: 20
-                                            Drag.hotSpot.y: 20
-
-                                    // delegate: Rectangle {
-                                    //     id: listDelegateItem
-                                    //     property int itemIndex: index
-                                    //     width: listView.width
-                                    //     height: model.isFolder ? 32 : 60
-                                    //     radius: 5
-                                    //     color: listDropOnFolder.containsDrag ? "#233554" : (panelRoot.isSelected(index) ? panelRoot.bgCardSelected : (itemMouseArea.containsMouse ? panelRoot.bgCardHover : "#1a1a1c")) // "transparent"))
-                                    //     border.color: listDropOnFolder.containsDrag ? "#4d88e8" : (panelRoot.isSelected(index) ? panelRoot.accentColor : "transparent")
-                                    //     border.width: 1
-                                    //
-                                    //     Drag.active: itemMouseArea.drag.active
-                                    //     Drag.dragType: Drag.Automatic
-                                    //     Drag.supportedActions: Qt.CopyAction | Qt.MoveAction
-                                    //     Drag.keys: ["xyla/media-asset", "text/uri-list"]
-                                    //     Drag.source: listDelegateItem
-                                    //     Drag.mimeData: {
-                                    //         "xyla/media-asset": model.id || "",
-                                    //         "text/uri-list": model.path ? (model.path.startsWith("file://") ? model.path : "file://" + model.path) : ""
-                                    //     }
-                                    //     // FIX: The Drag image fix here
-                                    //     Drag.imageSource: model.isFolder ? "qrc:/assets/icons/folder.svg" : (model.path ? ("image://thumbnails/" + model.path + "?width=40") : "qrc:/assets/icons/crop-landscape.svg")
-                                    //     Drag.hotSpot.x: 20
-                                    //     Drag.hotSpot.y: 20
-
-                                        // Folder drop target in Tree
-                                        DropArea {
-                                            id: listDropOnFolder
-                                            anchors.fill: parent
-                                            enabled: model.isFolder
-                                            keys: ["xyla/media-asset", "text/uri-list"]
-
-                                            onEntered: function (drag) {
-                                                if (panelRoot.draggedAssetIds.indexOf(model.id) !== -1) {
-                                                    drag.accepted = false;
-                                                    return;
-                                                }
-                                                drag.accept(Qt.MoveAction);
-                                            }
-
-                                            onDropped: function (drop) {
-                                                if (!model.isFolder || panelRoot.draggedAssetIds.indexOf(model.id) !== -1) {
-                                                    drop.accepted = false;
-                                                    return;
-                                                }
-                                                drop.accept(Qt.MoveAction);
-                                                var targetFolderId = model.id;
-                                                var root = panelRoot;
-                                                if (root && root.draggedAssetIds.length > 0 && root.activeMediaBinModel) {
-                                                    root.activeMediaBinModel.moveAssetsById(root.draggedAssetIds, targetFolderId);
-                                                    // root.clearSelection();
-                                                    root.draggedAssetIds = [];
-                                                }
-                                            }
-
-                                            // onDropped: function (drop) {
-                                            //     if (!model.isFolder || panelRoot.draggedAssetIds.indexOf(model.id) !== -1) {
-                                            //         drop.accepted = false;
-                                            //         return;
-                                            //     }
-                                            //     drop.accept(Qt.MoveAction);
-                                            //     var targetFolderId = model.id;
-                                            //     var root = panelRoot;
-                                            //     if (root && root.draggedAssetIds.length > 0 && root.activeMediaBinModel) {
-                                            //         root.activeMediaBinModel.moveAssetsById(root.draggedAssetIds, targetFolderId);
-                                            //         root.clearSelection();
-                                            //         root.draggedAssetIds = [];
-                                            //     }
-                                            // }
-                                            // onDropped: function (drop) {
-                                            //     if (!model.isFolder || panelRoot.draggedAssetIds.indexOf(model.id) !== -1) {
-                                            //         drop.accepted = false;
-                                            //         return;
-                                            //     }
-                                            //     // if (panelRoot.draggedAssetIds.indexOf(model.id) !== -1) {
-                                            //     //     drop.accepted = false;
-                                            //     //     return;
-                                            //     // }
-                                            //     drop.accept(Qt.MoveAction);
-                                            //     var targetFolderId = model.id;
-                                            //     if (panelRoot.draggedAssetIds.length > 0 && panelRoot.activeMediaBinModel) {
-                                            //         panelRoot.activeMediaBinModel.moveAssetsById(panelRoot.draggedAssetIds, targetFolderId);
-                                            //         panelRoot.clearSelection();
-                                            //         panelRoot.draggedAssetIds = [];
-                                            //     }
-                                            // }
-                                        }
-
-                                        RowLayout {
-                                            anchors.fill: parent
-                                            anchors.leftMargin: 8 // + ((model.depth || 0) * 16)
-                                            anchors.rightMargin: 10
-                                            spacing: 6
-                                            z: 1
-
-            Item {
-                Layout.preferredWidth: 10
-                Layout.preferredHeight: 10
-                visible: model.isFolder
-
-                Image {
-                    id: chevronIcon
-                    anchors.centerIn: parent
-                    width: 10
-                    height: 10
-                    source: "qrc:/assets/icons/chevron-down.svg"
-                    fillMode: Image.PreserveAspectFit
-                    smooth: true
-                    transformOrigin: Item.Center
-                    rotation: model.isExpanded ? 0 : -90
-
-                    Behavior on rotation {
+                    enter: Transition {
                         NumberAnimation {
-                            duration: 180
+                            property: "opacity"
+                            from: 0.0
+                            to: 1.0
+                            duration: 140
+                            easing.type: Easing.OutCubic
+                        }
+                        NumberAnimation {
+                            property: "scale"
+                            from: 0.95
+                            to: 1.0
+                            duration: 160
                             easing.type: Easing.OutCubic
                         }
                     }
 
-                    // Color overlay using MultiEffect
-                    layer.enabled: true
-                    layer.effect: MultiEffect {
-                        colorization: 1.0
-                        colorizationColor: treeChevronMouse.containsMouse ? "#ffffff" : "#808080"
+                    exit: Transition {
+                        NumberAnimation {
+                            property: "opacity"
+                            from: 1.0
+                            to: 0.0
+                            duration: 110
+                            easing.type: Easing.OutCubic
+                        }
+                        NumberAnimation {
+                            property: "scale"
+                            from: 1.0
+                            to: 0.95
+                            duration: 110
+                            easing.type: Easing.OutCubic
+                        }
+                    }
 
-                        Behavior on colorizationColor {
-                            ColorAnimation {
-                                duration: 120
+                    contentItem: RowLayout {
+                        anchors.fill: parent
+                        anchors.leftMargin: 8
+                        anchors.rightMargin: 8
+                        spacing: 6
+
+                        TextField {
+                            id: searchInput
+
+                            Layout.fillWidth: true
+                            Layout.fillHeight: true
+
+                            placeholderText: (searchPopup.globalSearch || panelRoot.isListView) ? "Search everywhere..." : "Search this folder..."
+
+                            placeholderTextColor: "#606060"
+                            color: "#ffffff"
+                            font.pixelSize: 11
+
+                            background: Item {}
+
+                            selectByMouse: true
+                            focus: true
+                            activeFocusOnTab: false
+
+                            // Preserved exact focus lock fix
+                            onActiveFocusChanged: {
+                                if (!activeFocus && searchPopup.opened && panelRoot.editingIndex === -1) {
+                                    searchInput.forceActiveFocus();
+                                }
+                            }
+
+                            onTextChanged: searchDebounce.restart()
+
+                            Timer {
+                                id: searchDebounce
+                                interval: 50
+                                repeat: false
+
+                                onTriggered: {
+                                    if (panelRoot.activeMediaBinModel) {
+                                        panelRoot.activeMediaBinModel.searchFilter = searchInput.text;
+                                    }
+                                }
+                            }
+
+                            Keys.onEscapePressed: {
+                                text = "";
+                                if (panelRoot.activeMediaBinModel) {
+                                    panelRoot.activeMediaBinModel.searchFilter = "";
+                                }
+                                searchPopup.close();
+                            }
+
+                            Keys.onReturnPressed: event => {
+                                searchPopup.close();
+                                event.accepted = true;
+                            }
+
+                            Keys.onEnterPressed: event => {
+                                searchPopup.close();
+                                event.accepted = true;
+                            }
+                        }
+
+                        // Quick clear button ('✕')
+                        Rectangle {
+                            Layout.preferredWidth: 18
+                            Layout.preferredHeight: 18
+                            radius: 9
+                            color: clearMouse.containsMouse ? "#28282b" : "#181818"
+                            opacity: searchInput.text.length > 0
+
+                            Behavior on opacity {
+                                NumberAnimation {
+                                    duration: 140
+                                    easing.type: Easing.OutCubic
+                                }
+                            }
+                            Behavior on color {
+                                ColorAnimation {
+                                    duration: 140
+                                    easing.type: Easing.OutCubic
+                                }
+                            }
+
+                            Text {
+                                anchors.centerIn: parent
+                                text: "✕"
+                                color: clearMouse.containsMouse ? "#ffffff" : "#777777"
+                                Behavior on color {
+                                    ColorAnimation {
+                                        duration: 140
+                                        easing.type: Easing.OutCubic
+                                    }
+                                }
+                                font.pixelSize: 10
+                            }
+
+                            MouseArea {
+                                id: clearMouse
+                                anchors.fill: parent
+                                hoverEnabled: true
+                                cursorShape: Qt.PointingHandCursor
+                                onClicked: {
+                                    searchInput.text = "";
+                                    if (panelRoot.activeMediaBinModel) {
+                                        panelRoot.activeMediaBinModel.searchFilter = "";
+                                    }
+                                    searchInput.forceActiveFocus();
+                                }
+                            }
+                        }
+
+                        // Search scope toggle (Visible in Grid View where folders exist)
+                        Rectangle {
+                            id: searchScopeButton
+                            visible: !panelRoot.isListView
+                            Layout.preferredWidth: scopeRow.implicitWidth + 12
+                            Layout.preferredHeight: 24
+                            radius: 6
+
+                            color: scopeMouse.pressed ? "#303033" : scopeMouse.containsMouse ? "#28282b" : "#181818"
+
+                            Behavior on color {
+                                ColorAnimation {
+                                    duration: scopeMouse.pressed ? 80 : 140
+                                    easing.type: scopeMouse.pressed ? Easing.OutQuad : Easing.OutCubic
+                                }
+                            }
+
+                            Row {
+                                id: scopeRow
+                                anchors.centerIn: parent
+                                spacing: 4
+
+                                Image {
+                                    anchors.verticalCenter: parent.verticalCenter
+                                    width: 13
+                                    height: 13
+                                    sourceSize: Qt.size(13, 13)
+                                    fillMode: Image.PreserveAspectFit
+                                    source: searchPopup.globalSearch ?
+                                    // FIX: Icon
+                                    "qrc:/assets/icons/folder.svg" : "qrc:/assets/icons/clear-all.svg"
+                                    opacity: scopeMouse.containsMouse ? 1.0 : 0.65
+                                }
+
+                                Text {
+                                    anchors.verticalCenter: parent.verticalCenter
+                                    text: searchPopup.globalSearch ? "This folder" : "Everywhere"
+                                    color: scopeMouse.containsMouse ? "#ffffff" : "#989898"
+                                    font.pixelSize: 10
+                                    font.weight: Font.Medium
+                                    width: implicitWidth
+
+                                    // Animate the text color change
+                                    Behavior on color {
+                                        ColorAnimation {
+                                            duration: 140
+                                            easing.type: Easing.OutCubic
+                                        }
+                                    }
+
+                                    // Animate the width change when the text string changes
+                                    Behavior on width {
+                                        NumberAnimation {
+                                            duration: 200 // Slightly longer than color for a smoother layout shift
+                                            easing.type: Easing.InOutQuad
+                                        }
+                                    }
+                                }
+                            }
+
+                            MouseArea {
+                                id: scopeMouse
+                                anchors.fill: parent
+                                hoverEnabled: true
+                                cursorShape: Qt.PointingHandCursor
+
+                                onClicked: {
+                                    var nextState = !searchPopup.globalSearch;
+                                    searchPopup.globalSearch = nextState;
+
+                                    if (panelRoot.activeMediaBinModel) {
+                                        panelRoot.activeMediaBinModel.globalSearch = nextState;
+                                    }
+
+                                    searchInput.forceActiveFocus();
+                                }
                             }
                         }
                     }
                 }
-
-                MouseArea {
-                    id: treeChevronMouse
-                    anchors.fill: parent
-                    hoverEnabled: true
-                    cursorShape: Qt.PointingHandCursor
-                    onClicked: {
-                        if (panelRoot.activeMediaBinModel) {
-                            panelRoot.activeMediaBinModel.toggleFolderExpanded(model.id);
-                        }
-                    }
-                }
             }
-            // Item {
-            //     Layout.preferredWidth: 10
-            //     Layout.preferredHeight: 10
-            //     visible: model.isFolder
+            //             XylaIconButton {
+            //                 id: searchBtn
+            //                 implicitWidth: 30
+            //                 implicitHeight: 30
+            //                 iconSource: "qrc:/assets/icons/search.svg"
+            //                 primary: searchPopup.opened || (searchInput.text !== "")
             //
-            //     Item {
-            //         id: chevronContainer
-            //         anchors.fill: parent
-            //         rotation: model.isExpanded ? 0 : 270
+            //                 onClicked: {
+            //                     panelRoot.editingIndex = -1;
+            //                     if (searchPopup.opened) {
+            //                         searchPopup.close();
+            //                     } else {
+            //                         searchPopup.open();
+            //                     }
+            //                 }
             //
-            //         Behavior on rotation {
-            //             NumberAnimation {
-            //                 duration: 160
-            //                 easing.type: Easing.OutCubic
+            //                 Popup {
+            //                     id: searchPopup
+            //                     y: searchBtn.height + 6
+            //                     x: searchBtn.width - (width)
+            //                     property bool globalSearch: false
+            //                     width: 330
+            //                     height: 34
+            //                     padding: 0
+            //                     modal: false
+            //                     focus: false
+            //                     closePolicy: Popup.CloseOnPressOutsideParent | Popup.CloseOnEscape
+            //
+            //                     onOpened: searchInput.forceActiveFocus()
+            //                     onAboutToHide: searchInput.focus = false
+            //
+            //                     background: Rectangle {
+            //                         color: "#181818"
+            //                         border.color: searchInput.activeFocus ? panelRoot.accentColor : "#2e2e30"
+            //                         border.width: 1
+            //                         radius: 6
+            //
+            //                         layer.enabled: true
+            //                         layer.effect: MultiEffect {
+            //                             shadowEnabled: true
+            //                             shadowColor: "#90000000"
+            //                             shadowBlur: 0.65
+            //                             shadowVerticalOffset: 6
+            //                         }
+            //                     }
+            //
+            //                     enter: Transition {
+            //                         NumberAnimation {
+            //                             property: "opacity"
+            //                             from: 0.0
+            //                             to: 1.0
+            //                             duration: 140
+            //                             easing.type: Easing.OutCubic
+            //                         }
+            //                         NumberAnimation {
+            //                             property: "scale"
+            //                             from: 0.95
+            //                             to: 1.0
+            //                             duration: 160
+            //                             easing.type: Easing.OutCubic
+            //                         }
+            //                     }
+            //
+            //                     exit: Transition {
+            //                         NumberAnimation {
+            //                             property: "opacity"
+            //                             from: 1.0
+            //                             to: 0.0
+            //                             duration: 110
+            //                             easing.type: Easing.OutCubic
+            //                         }
+            //                         NumberAnimation {
+            //                             property: "scale"
+            //                             from: 1.0
+            //                             to: 0.95
+            //                             duration: 110
+            //                             easing.type: Easing.OutCubic
+            //                         }
+            //                     }
+            //
+            // contentItem: RowLayout {
+            //     anchors.fill: parent
+            //
+            //     anchors.leftMargin: 8
+            //     anchors.rightMargin: 8
+            //
+            //     spacing: 4
+            //
+            //     TextField {
+            //         id: searchInput
+            //
+            //         Layout.fillWidth: true
+            //         Layout.fillHeight: true
+            //
+            //         placeholderText: searchPopup.globalSearch
+            //                          ? "Search everywhere..."
+            //                          : "Search this folder..."
+            //
+            //         placeholderTextColor: "#606060"
+            //         color: "#ffffff"
+            //
+            //         font.pixelSize: 11
+            //
+            //         background: Item {}
+            //
+            //         selectByMouse: true
+            //         focus: true
+            //         activeFocusOnTab: false
+            //
+            //         onActiveFocusChanged: {
+            //             if (!activeFocus &&
+            //                 searchPopup.opened &&
+            //                 panelRoot.editingIndex === -1) {
+            //                 searchInput.forceActiveFocus();
             //             }
             //         }
             //
+            //         onTextChanged: searchDebounce.restart()
+            //
+            //         Timer {
+            //             id: searchDebounce
+            //
+            //             interval: 50
+            //             repeat: false
+            //
+            //             onTriggered: {
+            //                 if (searchPopup.globalSearch) {
+            //                     // GLOBAL SEARCH
+            //                     // Connect this to your global-search implementation.
+            //                     panelRoot.performGlobalSearch(searchInput.text);
+            //                 } else {
+            //                     // CURRENT FOLDER SEARCH
+            //                     if (panelRoot.activeMediaBinModel) {
+            //                         panelRoot.activeMediaBinModel.searchFilter =
+            //                                 searchInput.text;
+            //                     }
+            //                 }
+            //             }
+            //         }
+            //
+            //         Keys.onEscapePressed: {
+            //             text = "";
+            //
+            //             if (panelRoot.activeMediaBinModel) {
+            //                 panelRoot.activeMediaBinModel.searchFilter = "";
+            //             }
+            //
+            //             searchPopup.close();
+            //         }
+            //
+            //         Keys.onReturnPressed: event => {
+            //             searchPopup.close();
+            //             event.accepted = true;
+            //         }
+            //
+            //         Keys.onEnterPressed: event => {
+            //             searchPopup.close();
+            //             event.accepted = true;
+            //         }
+            //     }
+            //
+            //     // Search scope toggle
+            // Rectangle {
+            //     id: searchScopeButton
+            //
+            //     implicitWidth: scopeRow.implicitWidth + 10
+            //     implicitHeight: 24
+            //     radius: 5
+            //
+            //     color: mouseArea.pressed
+            //            ? "#303033"
+            //            : mouseArea.containsMouse
+            //              ? "#28282b"
+            //              : "transparent"
+            //
+            //     Behavior on color {
+            //         ColorAnimation {
+            //             duration: mouseArea.pressed ? 80 : 140
+            //             easing.type: mouseArea.pressed
+            //                        ? Easing.OutQuad
+            //                        : Easing.OutCubic
+            //         }
+            //     }
+            //
+            //     Row {
+            //         id: scopeRow
+            //
+            //         anchors.centerIn: parent
+            //         spacing: 5
+            //
             //         Image {
-            //             id: chevronIcon
-            //             anchors.fill: parent
-            //             source: "qrc:/assets/icons/chevron-down.svg"
+            //             id: scopeIcon
+            //
+            //             width: 16
+            //             height: 16
+            //
+            //             source: searchPopup.globalSearch
+            //                     ? "qrc:/assets/icons/globe.svg"
+            //                     : "qrc:/assets/icons/folder.svg"
+            //
+            //             sourceSize: Qt.size(16, 16)
             //             fillMode: Image.PreserveAspectFit
-            //             smooth: true
             //             visible: false
             //         }
             //
             //         MultiEffect {
-            //             source: chevronIcon
-            //             anchors.fill: chevronIcon
+            //             source: scopeIcon
+            //             anchors.fill: scopeIcon
+            //
             //             colorization: 1.0
-            //             colorizationColor: treeChevronMouse.containsMouse ? "#ffffff" : "#808080"
+            //             colorizationColor: mouseArea.containsMouse
+            //                               ? "#ffffff"
+            //                               : "#989898"
             //
             //             Behavior on colorizationColor {
             //                 ColorAnimation {
-            //                     duration: 120
+            //                     duration: 140
+            //                     easing.type: Easing.OutCubic
+            //                 }
+            //             }
+            //         }
+            //
+            //         Text {
+            //             text: searchPopup.globalSearch
+            //                   ? "Everywhere"
+            //                   : "Current folder"
+            //
+            //             color: mouseArea.containsMouse
+            //                    ? "#ffffff"
+            //                    : "#989898"
+            //
+            //             font.pixelSize: 11
+            //
+            //             Behavior on color {
+            //                 ColorAnimation {
+            //                     duration: 140
+            //                     easing.type: Easing.OutCubic
             //                 }
             //             }
             //         }
             //     }
             //
             //     MouseArea {
-            //         id: treeChevronMouse
+            //         id: mouseArea
+            //
             //         anchors.fill: parent
-            //         hoverEnabled: true
             //         cursorShape: Qt.PointingHandCursor
+            //
+            //         onPressed: searchScopeButton.scale = 0.92
+            //         onReleased: searchScopeButton.scale = 1.0
+            //         onCanceled: searchScopeButton.scale = 1.0
+            //
             //         onClicked: {
+            //             searchPopup.globalSearch = !searchPopup.globalSearch
+            //
+            //             searchInput.text = ""
+            //
             //             if (panelRoot.activeMediaBinModel) {
-            //                 panelRoot.activeMediaBinModel.toggleFolderExpanded(model.id);
+            //                 panelRoot.activeMediaBinModel.searchFilter = ""
+            //             }
+            //
+            //             searchInput.forceActiveFocus()
+            //         }
+            //     }
+            //
+            //     Behavior on scale {
+            //         NumberAnimation {
+            //             duration: mouseArea.pressed ? 80 : 160
+            //             easing.type: mouseArea.pressed
+            //                        ? Easing.OutQuad
+            //                        : Easing.OutBack
+            //             easing.overshoot: 1.3
+            //         }
+            //     }
+            // }
+            //
+            //     // Quick clear button
+            //     Text {
+            //         text: "✕"
+            //
+            //         color: "#777777"
+            //         font.pixelSize: 11
+            //
+            //         visible: searchInput.text.length > 0
+            //
+            //         MouseArea {
+            //             anchors.fill: parent
+            //
+            //             cursorShape: Qt.PointingHandCursor
+            //
+            //             onClicked: {
+            //                 searchInput.text = "";
             //             }
             //         }
             //     }
             // }
+            //                 }
+            //             }
 
-                                            Item {
-                                                Layout.preferredWidth: 10
-                                                Layout.preferredHeight: 10
-                                                visible: !model.isFolder
-                                            }
+        }
 
-                                            Rectangle {
-                                                id: thumbFrame_
-                                                visible: !model.isFolder
-                                                width: 70
-                                                height: 48
-                                                // Layout.fillWidth: true
-                                                // Layout.fillHeight: true
-                                                radius: 5
-                                                color: "#121213"
+        // Drop Area & Media Container
+        Item {
+            Layout.fillWidth: true
+            Layout.fillHeight: true
 
-                                                // Mask item defined cleanly with proper binding sizes
-                                                Item {
-                                                    id: maskContainer
-                                                    width: thumbFrame_.width
-                                                    height: thumbFrame_.height
-                                                    visible: false
+            // External OS files drop area
+            DropArea {
+                id: dropArea
+                anchors.fill: parent
 
-                                                    Rectangle {
-                                                        width: parent.width
-                                                        height: parent.height
-                                                        radius: thumbFrame_.radius
-                                                        color: "black"
-                                                    }
-                                                }
+                onEntered: function (drag) {
+                    if (drag.source !== null) {
+                        drag.accepted = false;
+                        return;
+                    }
+                    drag.accept(Qt.CopyAction);
+                }
 
-                                                Image {
-                                                    anchors.fill: parent
-                                                    sourceSize.width: width
-                                                    sourceSize.height: height
-                                                    fillMode: Image.PreserveAspectCrop
-                                                    clip: true
-                                                    source: model.path ? "image://thumbnails/" + model.path + "?width=" + Math.round(panelRoot.gridCellSize * 1.5) : ""
-                                                    asynchronous: true
+                onDropped: function (drop) {
+                    panelRoot.editingIndex = -1;
+                    if (drop.source !== null)
+                        return;
+                    drop.accept(Qt.CopyAction);
 
-                                                    layer.enabled: true
-                                                    layer.effect: MultiEffect {
-                                                        maskEnabled: true
-                                                        maskSource: ShaderEffectSource {
-                                                            sourceItem: maskContainer
-                                                            live: true
-                                                            hideSource: true
-                                                        }
-                                                    }
-                                                }
-                                            }
+                    if (!drop.hasUrls || drop.urls.length === 0 || !panelRoot.activeMediaPool)
+                        return;
 
-                                            Image {
-                                                visible: model.isFolder
-                                                source: model.isExpanded ? "qrc:/assets/icons/folder-open.svg" : "qrc:/assets/icons/folder.svg"
-                                                sourceSize.width: 15
-                                                sourceSize.height: 15
-                                                opacity: model.isFolder ? 0.95 : 0.75
-                                            }
+                    var rawPaths = [];
+                    for (let i = 0; i < drop.urls.length; i++) {
+                        let localPath = panelRoot.urlToLocalPath(drop.urls[i]);
+                        if (localPath.length > 0)
+                            rawPaths.push(localPath);
+                    }
 
-                                            Text {
-                                                id: nameText
-                                                visible: panelRoot.editingIndex !== index
-                                                text: model.isFolder ? (model.name || "") : panelRoot.displayName(model.name || "", panelRoot.showExtensions)
-                                                color: panelRoot.textPrimary
-                                                font.pixelSize: 12
-                                                font.weight: model.isFolder ? Font.Medium : Font.Normal
-                                                elide: Text.ElideRight
-                                                Layout.fillWidth: true
-                                            }
+                    if (rawPaths.length === 0)
+                        return;
 
-            TextField {
-                                                id: renameField
-                                                visible: panelRoot.editingIndex === index
-                                                Layout.fillWidth: true
-                                                z: 20
-                                                text: model.name || ""
-                                                font.pixelSize: 12
-                                                color: "#ffffff"
-                                                selectByMouse: true
-                                                focus: visible
-                                                background: Rectangle {
-                                                    color: "#121212"
-                                                    radius: 6
-                                                }
+                    var currentBin = panelRoot.isListView ? "root" : (panelRoot.activeMediaBinModel ? panelRoot.activeMediaBinModel.currentBinId : "root");
+                    panelRoot.activeMediaPool.importFilesAsync(rawPaths, currentBin);
+                }
 
-                                                property bool isReady: false
+                MouseArea {
+                    id: rubberBandArea
+                    anchors.fill: parent
+                    acceptedButtons: Qt.LeftButton
+                    z: 15
+                    preventStealing: selecting
+                    propagateComposedEvents: true
 
-                                                function grabFocus() {
-                                                    renameField.forceActiveFocus();
-                                                    renameField.selectAll();
-                                                }
+                    property real startX: 0
+                    property real startY: 0
+                    property bool selecting: false
 
-                                                onVisibleChanged: {
-                                                    if (visible) {
-                                                        isReady = false;
-                                                        text = model.name || "";
-                                                        grabFocus();
-                                                        listFocusTimer.restart();
-                                                    } else {
-                                                        isReady = false;
-                                                    }
-                                                }
+                    onPressed: function (mouse) {
+                        startX = mouse.x;
+                        startY = mouse.y;
+                        selecting = false;
+                        panelRoot.editingIndex = -1;
+                        mouse.accepted = false; // allow clicks to propagate through to items if not dragging
+                    }
 
-                                                Timer {
-                                                    id: listFocusTimer
-                                                    interval: 160
-                                                    repeat: false
-                                                    onTriggered: {
-                                                        if (renameField.visible) {
-                                                            renameField.grabFocus();
-                                                            renameField.isReady = true;
-                                                        }
-                                                    }
-                                                }
+                    onPositionChanged: function (mouse) {
+                        if (!selecting && (Math.abs(mouse.x - startX) > 6 || Math.abs(mouse.y - startY) > 6)) {
+                            selecting = true;
+                            if (!(mouse.modifiers & (Qt.ControlModifier | Qt.ShiftModifier | Qt.MetaModifier))) {
+                                panelRoot.clearSelection();
+                            }
+                        }
+                        if (selecting) {
+                            let x1 = Math.min(startX, mouse.x), x2 = Math.max(startX, mouse.x);
+                            let y1 = Math.min(startY, mouse.y), y2 = Math.max(startY, mouse.y);
+                            selectionRect.x = x1;
+                            selectionRect.y = y1;
+                            selectionRect.width = x2 - x1;
+                            selectionRect.height = y2 - y1;
 
-                                                onActiveFocusChanged: {
-                                                    if (!activeFocus && isReady && visible) {
-                                                        commitRename();
-                                                    }
-                                                }
+                            // Map coordinates to stack view container
+                            var targetView = panelRoot.isListView ? listView : gridView;
+                            var localPt1 = mapToItem(targetView, x1, y1);
+                            var localPt2 = mapToItem(targetView, x2, y2);
+                            panelRoot.applyRubberBandSelection(localPt1.x, localPt1.y, localPt2.x, localPt2.y);
+                        }
+                    }
 
-                                                Keys.onReturnPressed: commitRename()
-                                                Keys.onEnterPressed: commitRename()
-                                                Keys.onEscapePressed: panelRoot.editingIndex = -1
+                    onReleased: function (mouse) {
+                        if (selecting) {
+                            selecting = false;
+                            selectionRect.width = 0;
+                            selectionRect.height = 0;
+                            mouse.accepted = true;
+                        } else {
+                            mouse.accepted = false;
+                        }
+                    }
+                }
 
-                                                function commitRename() {
-                                                    if (panelRoot.editingIndex === index && panelRoot.activeMediaBinModel) {
-                                                        let newName = text.trim();
-                                                        panelRoot.editingIndex = -1;
-                                                        if (newName !== "" && newName !== model.name) {
-                                                            panelRoot.activeMediaBinModel.renameAsset(index, newName);
-                                                        }
-                                                    } else {
-                                                        panelRoot.editingIndex = -1;
-                                                    }
-                                                }
-                                            }
-                                            // TextField {
-                                            //     id: renameField
-                                            //     visible: panelRoot.editingIndex === index
-                                            //     Layout.fillWidth: true
-                                            //     z: 20
-                                            //     text: model.name || ""
-                                            //     font.pixelSize: 12
-                                            //     color: "#ffffff"
-                                            //     selectByMouse: true
-                                            //     focus: visible
-                                            //     background: Rectangle {
-                                            //         color: "#121212"
-                                            //         // border.color: panelRoot.accentColor
-                                            //         // border.width: 1.5
-                                            //         radius: 6
-                                            //     }
-                                            //
-                                            //     property bool isReady: false
-                                            //
-                                            //     function grabFocus() {
-                                            //         renameField.forceActiveFocus();
-                                            //         renameField.selectAll();
-                                            //     }
-                                            //
-                                            //     onVisibleChanged: {
-                                            //         if (visible) {
-                                            //             isReady = false;
-                                            //             text = model.name || "";
-                                            //             grabFocus();
-                                            //             listFocusTimer.restart();
-                                            //         } else {
-                                            //             isReady = false;
-                                            //         }
-                                            //     }
-                                            //
-                                            //     Timer {
-                                            //         id: listFocusTimer
-                                            //         interval: 160
-                                            //         repeat: false
-                                            //         onTriggered: {
-                                            //             if (renameField.visible) {
-                                            //                 renameField.grabFocus();
-                                            //                 renameField.isReady = true;
-                                            //             }
-                                            //         }
-                                            //     }
-                                            //
-                                            //     onActiveFocusChanged: {
-                                            //         if (!activeFocus && isReady && visible) {
-                                            //             commitRename();
-                                            //         }
-                                            //     }
-                                            //
-                                            //     Keys.onReturnPressed: commitRename()
-                                            //     Keys.onEnterPressed: commitRename()
-                                            //     Keys.onEscapePressed: panelRoot.editingIndex = -1
-                                            //
-                                            //     function commitRename() {
-                                            //         if (panelRoot.editingIndex === index && panelRoot.activeMediaBinModel) {
-                                            //             let newName = text.trim();
-                                            //             panelRoot.editingIndex = -1;
-                                            //             if (newName !== "" && newName !== model.name) {
-                                            //                 panelRoot.activeMediaBinModel.renameAsset(index, newName);
-                                            //             }
-                                            //         } else {
-                                            //             panelRoot.editingIndex = -1;
-                                            //         }
-                                            //     }
-                                            // }
+                Rectangle {
+                    id: selectionRect
+                    color: "#2a2555D3"
+                    border.color: panelRoot.accentColor
+                    border.width: 1
+                    visible: rubberBandArea.selecting && (width > 2 || height > 2)
+                    z: 20
+                }
 
-                                            Text {
-                                                text: model.resolution || ""
-                                                color: "#666666"
-                                                font.pixelSize: 10
-                                                visible: !model.isFolder && panelRoot.editingIndex !== index
-                                            }
+                Rectangle {
+                    anchors.fill: parent
+                    color: (dropArea.containsDrag && dropArea.drag.source === null) ? "#152555D3" : "transparent"
+                    border.color: (dropArea.containsDrag && dropArea.drag.source === null) ? panelRoot.accentColor : "transparent"
+                    border.width: 1.5
+                    radius: 6
+                    z: 10
+                }
 
-                                            Text {
-                                                text: model.duration || ""
-                                                color: "#888888"
-                                                font.pixelSize: 11
-                                                visible: !model.isFolder && panelRoot.editingIndex !== index
-                                            }
-                                        }
+                // Stack View: List (Tree) vs Grid
+                StackLayout {
+                    anchors.fill: parent
+                    currentIndex: panelRoot.isListView ? 0 : 1
 
-                                        MouseArea {
-                                            id: itemMouseArea
-                                            anchors.fill: parent
-                                            hoverEnabled: true
-                                            enabled: panelRoot.editingIndex === -1
-                                            acceptedButtons: Qt.LeftButton | Qt.RightButton
-                                            drag.target: globalDummyDragTarget
-                                            drag.threshold: 5
+                    anchors.topMargin: searchPopup.visible ? 28 : 0
 
-                                            // Item {
-                                            //     id: listDummyDragTarget
-                                            // }
+                    Behavior on anchors.topMargin {
+                        NumberAnimation {
+                            duration: 180
+                            easing.type: Easing.OutCubic
+                        }
+                    }
 
-                                            onPressed: function (mouse) {
-                                                // dragPreview.visible = false;
+                    // ================================================================
+                    // TREE HIERARCHY LIST VIEW
+                    // ================================================================
+                    ListView {
+                        id: listView
+                        clip: true
+                        spacing: 2
+                        model: panelRoot.activeMediaBinModel
+                        focus: false
+                        keyNavigationEnabled: false
+                        activeFocusOnTab: false
 
-                                                if (panelRoot.editingIndex !== -1 && panelRoot.editingIndex !== index) {
-                                                    panelRoot.editingIndex = -1;
-                                                }
+                        // Place inside ListView (replacing TapHandler):
+                        // MouseArea {
+                        //     id: listBgMouseArea
+                        //     anchors.fill: parent
+                        //     z: -1
+                        //     acceptedButtons: Qt.LeftButton | Qt.RightButton
+                        //
+                        //     onClicked: function (mouse) {
+                        //         panelRoot.editingIndex = -1;
+                        //         panelRoot.clearSelection();
+                        //         if (mouse.button === Qt.RightButton) {
+                        //             var globalPt = mapToItem(Overlay.overlay, mouse.x, mouse.y);
+                        //             contextMenu.hasSelection = false;
+                        //             contextMenu.selectionCount = 0;
+                        //             contextMenu.selectionIsFolder = false;
+                        //             contextMenu.canPaste = panelRoot.clipboardAssets.length > 0;
+                        //             contextMenu.openAt(globalPt.x, globalPt.y);
+                        //         }
+                        //     }
+                        // }
+                        TapHandler {
+                            acceptedButtons: Qt.LeftButton | Qt.RightButton
+                            onTapped: function (eventPoint, button) {
+                                panelRoot.editingIndex = -1;
+                                panelRoot.clearSelection();
+                                if (button === Qt.RightButton) {
+                                    contextMenu.hasSelection = false;
+                                    contextMenu.selectionCount = 0;
+                                    contextMenu.selectionIsFolder = false;
+                                    contextMenu.canPaste = panelRoot.clipboardAssets.length > 0;
+                                    contextMenu.openAt(eventPoint.scenePosition.x, eventPoint.scenePosition.y);
+                                }
+                            }
+                        }
 
-                                                if (mouse.button === Qt.LeftButton) {
-                                                    if (mouse.modifiers & Qt.ShiftModifier && panelRoot.lastSelectedIndex >= 0) {
-                                                        panelRoot.selectRange(panelRoot.lastSelectedIndex, index);
-                                                    } else if (mouse.modifiers & (Qt.ControlModifier | Qt.MetaModifier)) {
-                                                        panelRoot.toggleSelect(index);
-                                                    } else if (!panelRoot.isSelected(index)) {
-                                                        panelRoot.selectSingle(index);
-                                                    }
+                        // Item {
+                        //     id: dragPreview
+                        //
+                        //     parent: Overlay.overlay
+                        //
+                        //     width: 64
+                        //     height: 64
+                        //
+                        //     visible: false
+                        //     z: 100000
+                        //
+                        //     property bool isFolder: false
+                        //     property string path: ""
+                        //
+                        //     scale: visible ? 1.0 : 0.85
+                        //
+                        //     Rectangle {
+                        //         id: dragPreviewBackground
+                        //
+                        //         anchors.fill: parent
+                        //
+                        //         radius: 10
+                        //         color: "#252525"
+                        //
+                        //         border.width: 1
+                        //         border.color: "#404040"
+                        //
+                        //         clip: true
+                        //
+                        //         Image {
+                        //             id: dragPreviewImage
+                        //
+                        //             anchors.fill: parent
+                        //             anchors.margins: 8
+                        //
+                        //             source: dragPreview.isFolder
+                        //                     ? "qrc:/assets/icons/folder.svg"
+                        //                     : (dragPreview.path
+                        //                        ? "image://thumbnails/"
+                        //                          + dragPreview.path
+                        //                          + "?width=120"
+                        //                        : "qrc:/assets/icons/crop-landscape.svg")
+                        //
+                        //             fillMode: Image.PreserveAspectFit
+                        //             smooth: true
+                        //
+                        //             layer.enabled: true
+                        //
+                        //             layer.effect: MultiEffect {
+                        //                 maskEnabled: true
+                        //
+                        //                 maskSource: Rectangle {
+                        //                     width: dragPreviewImage.width
+                        //                     height: dragPreviewImage.height
+                        //                     radius: 7
+                        //                 }
+                        //             }
+                        //         }
+                        //     }
+                        //
+                        //     Behavior on scale {
+                        //         NumberAnimation {
+                        //             duration: 120
+                        //             easing.type: Easing.OutCubic
+                        //         }
+                        //     }
+                        // }
+                        // ADDED: Outer/Background DropArea to catch drops outside any item/folder
+                        DropArea {
+                            anchors.fill: parent
+                            z: -1 // Sits behind delegates
 
-                                                    panelRoot.draggedAssetIds = panelRoot.getSelectedAssetIds();
-                                                    panelRoot.dragPreviewName = model.name || "";
-                                                    panelRoot.dragPreviewPath = model.path || "";
-                                                    panelRoot.dragPreviewIsFolder = model.isFolder;
-                                                    panelRoot.dragCount = Math.max(1, panelRoot.selectedIndices.length);
-                                                }
-                                            }
-                                            // onPressed: function (mouse) {
-                                            //     dragPreview.isFolder = model.isFolder
-                                            //     dragPreview.path = model.path
-                                            //     dragPreview.visible = true
-                                            //
-                                            //     if (panelRoot.editingIndex !== -1 && panelRoot.editingIndex !== index) {
-                                            //         panelRoot.editingIndex = -1;
-                                            //     }
-                                            //     if (mouse.button === Qt.LeftButton) {
-                                            //         if (mouse.modifiers & Qt.ShiftModifier && panelRoot.lastSelectedIndex >= 0) {
-                                            //             panelRoot.selectRange(panelRoot.lastSelectedIndex, index);
-                                            //         } else if (mouse.modifiers & (Qt.ControlModifier | Qt.MetaModifier)) {
-                                            //             panelRoot.toggleSelect(index);
-                                            //         } else if (!panelRoot.isSelected(index)) {
-                                            //             panelRoot.selectSingle(index);
-                                            //         }
-                                            //
-                                            //         panelRoot.draggedAssetIds = panelRoot.getSelectedAssetIds();
-                                            //         panelRoot.dragPreviewName = model.name || "";
-                                            //         panelRoot.dragPreviewPath = model.path || "";
-                                            //         panelRoot.dragPreviewIsFolder = model.isFolder;
-                                            //         panelRoot.dragCount = Math.max(1, panelRoot.selectedIndices.length);
-                                            //     }
-                                            // }
+                            onDropped: function (drop) {
+                                if (panelRoot.draggedAssetIds.length > 0 && panelRoot.activeMediaBinModel) {
+                                    drop.accept(Qt.MoveAction);
 
-                                            onPositionChanged: function (mouse) {
-                                                if (!itemMouseArea.drag.active)
-                                                    return;
+                                    // Pass "" (or null/0) to move items to root
+                                    panelRoot.activeMediaBinModel.moveAssetsById(panelRoot.draggedAssetIds, "");
+                                    // panelRoot.clearSelection();
+                                    panelRoot.draggedAssetIds = [];
+                                }
+                            }
+                        }
 
-                                                var pt = itemMouseArea.mapToItem(
-                                                    Overlay.overlay,
-                                                    mouse.x,
-                                                    mouse.y
-                                                );
+                        delegate: Item {
+                            id: listDelegateContainer
+                            width: listView.width
+                            height: model.isFolder ? 32 : 60
 
-                                                // dragPreview.x = pt.x + 14;
-                                                // dragPreview.y = pt.y + 14;
+                            readonly property int stepSize: 20
+                            readonly property int depthVal: model.depth || 0
+                            readonly property int cardIndent: depthVal * stepSize + (depthVal > 0 ? 6 : 0)
 
-                                                // listDelegateItem.Drag.active = true;
-                                                panelRoot.isCustomDragging = true;
+                            // 1. Initialize to initial animation state so it never "flashes" full opacity first
+                            property real itemScale: panelRoot.allowEntranceCascade ? 0.90 : 1.0
+                            property real itemOpacity: panelRoot.allowEntranceCascade ? 0.0 : 1.0
+                            scale: itemScale
+                            opacity: itemOpacity
+                            transformOrigin: Item.Left
 
-                                                panelRoot.dragGlobalX = pt.x;
-                                                panelRoot.dragGlobalY = pt.y;
+                            // 2. Targeted animation when called directly (pulse/pop in place without vanishing)
+                            function playEntranceAnim() {
+                                listTargetedAnim.restart();
+                            }
 
-                                                // Only becomes visible after the drag threshold is crossed.
-                                                // if (!dragPreview.visible) {
-                                                //     dragPreview.isFolder = model.isFolder;
-                                                //     dragPreview.path = model.path || "";
-                                                //     dragPreview.visible = true;
-                                                // }
-                                            }
-                                            // onPositionChanged: function (mouse) {
-                                            //     if (pressed) {
-                                            //         dragPreview.x = mouse.x + 14
-                                            //         dragPreview.y = mouse.y + 14
-                                            //     }
-                                            //
-                                            //     if (itemMouseArea.drag.active) {
-                                            //         listDelegateItem.Drag.active = true;
-                                            //         panelRoot.isCustomDragging = true;
-                                            //         var pt = mapToItem(Overlay.overlay, mouse.x, mouse.y);
-                                            //         panelRoot.dragGlobalX = pt.x;
-                                            //         panelRoot.dragGlobalY = pt.y;
-                                            //     }
-                                            // }
+                            function playEntranceAnimWithDelay(delayMs) {
+                                if (delayMs > 0) {
+                                    animDelayTimer.interval = delayMs;
+                                    animDelayTimer.restart();
+                                } else {
+                                    playEntranceAnim();
+                                }
+                            }
 
-                                            onReleased: function (mouse) {
-                                                // listDelegateItem.Drag.active = false;
-                                                panelRoot.isCustomDragging = false;
-                                                // dragPreview.visible = false;
-                                            }
+                            Timer {
+                                id: animDelayTimer
+                                repeat: false
+                                onTriggered: playEntranceAnim()
+                            }
 
-                                            onCanceled: {
-                                                // listDelegateItem.Drag.active = false;
-                                                panelRoot.isCustomDragging = false;
-                                                // dragPreview.visible = false;
-                                            }
-                                            // onPositionChanged: function (mouse) {
-                                            //     if (itemMouseArea.drag.active) {
-                                            //         panelRoot.isCustomDragging = true;
-                                            //         var pt = mapToItem(Overlay.overlay, mouse.x, mouse.y);
-                                            //         panelRoot.dragGlobalX = pt.x;
-                                            //         panelRoot.dragGlobalY = pt.y;
-                                            //     }
-                                            // }
-                                            //
-                                            // onReleased: function (mouse) {
-                                            //     panelRoot.isCustomDragging = false;
-                                            // }
-                                            // onCanceled: {
-                                            //     panelRoot.isCustomDragging = false;
-                                            // }
+                            // 3. Stagger only runs on initial load / view mode switch
+                            Component.onCompleted: {
+                                if (panelRoot.editingIndex === index) {
+                                    grabFocus();
+                                    listFocusTimer.restart();
+                                }
 
-                                            onClicked: function (mouse) {
-                                                if (mouse.button === Qt.LeftButton) {
-                                                    if (!(mouse.modifiers & (Qt.ShiftModifier | Qt.ControlModifier | Qt.MetaModifier))) {
-                                                        panelRoot.selectSingle(index);
-                                                    }
-                                                } else if (mouse.button === Qt.RightButton) {
-                                                    if (!panelRoot.isSelected(index)) {
-                                                        panelRoot.selectSingle(index);
-                                                    }
-                                                    let globalPoint = mapToItem(Overlay.overlay, mouse.x, mouse.y);
-                                                    contextMenu.hasSelection = true;
-                                                    contextMenu.selectionCount = Math.max(1, panelRoot.selectedIndices.length);
-                                                    contextMenu.selectionIsFolder = (contextMenu.selectionCount === 1 && model.isFolder);
-                                                    contextMenu.canPaste = panelRoot.clipboardAssets.length > 0;
-                                                    contextMenu.openAt(globalPoint.x, globalPoint.y);
-                                                }
-                                            }
+                                if (panelRoot.allowEntranceCascade) {
+                                    listStaggerTimer.interval = Math.min(index * 20, 240);
+                                    listStaggerTimer.start();
+                                }
+                            }
 
-                                            onDoubleClicked: function (mouse) {
-                                                if (mouse.button === Qt.LeftButton && model.isFolder) {
-                                                    if (panelRoot.activeMediaBinModel) {
-                                                        panelRoot.activeMediaBinModel.toggleFolderExpanded(model.id);
-                                                    }
-                                                }
-                                            }
-                                        }
-                                      }
+                            Timer {
+                                id: listStaggerTimer
+                                repeat: false
+                                onTriggered: listEntranceAnim.restart()
+                            }
+
+                            // Initial load/mode-switch animation
+                            ParallelAnimation {
+                                id: listEntranceAnim
+                                NumberAnimation {
+                                    target: listDelegateContainer
+                                    property: "itemScale"
+                                    from: 0.90
+                                    to: 1.0
+                                    duration: 180
+                                    easing.type: Easing.OutBack
+                                    easing.overshoot: 1.25
+                                }
+                                NumberAnimation {
+                                    target: listDelegateContainer
+                                    property: "itemOpacity"
+                                    from: 0.0
+                                    to: 1.0
+                                    duration: 150
+                                    easing.type: Easing.OutQuad
+                                }
+                            }
+
+                            // Targeted animation for single modified/renamed/added item
+                            SequentialAnimation {
+                                id: listTargetedAnim
+                                NumberAnimation {
+                                    target: listDelegateContainer
+                                    property: "itemScale"
+                                    from: 1.0
+                                    to: 1.04
+                                    duration: 120
+                                    easing.type: Easing.OutQuad
+                                }
+                                NumberAnimation {
+                                    target: listDelegateContainer
+                                    property: "itemScale"
+                                    from: 1.04
+                                    to: 1.0
+                                    duration: 160
+                                    easing.type: Easing.InOutQuad
+                                }
+                            }
+                            // delegate: Item {
+                            //     id: listDelegateContainer
+                            //     width: listView.width
+                            //     height: model.isFolder ? 32 : 60
+                            //
+                            //     readonly property int stepSize: 20
+                            //     readonly property int depthVal: model.depth || 0
+                            //     readonly property int cardIndent: depthVal * stepSize + (depthVal > 0 ? 6 : 0)
+                            //
+                            //     property real itemScale: 1.0
+                            //     property real itemOpacity: 1.0
+                            //     scale: itemScale
+                            //     opacity: itemOpacity
+                            //     transformOrigin: Item.Left
+                            //
+                            //     function playEntranceAnim() {
+                            //         listEntranceAnim.restart();
+                            //     }
+                            //
+                            //     Component.onCompleted: {
+                            //         // Stagger initial load animation slightly per row
+                            //         listStaggerTimer.interval = Math.min(index * 20, 240);
+                            //         listStaggerTimer.start();
+                            //     }
+                            //
+                            //     Timer {
+                            //         id: listStaggerTimer
+                            //         repeat: false
+                            //         onTriggered: listEntranceAnim.restart()
+                            //     }
+                            //
+                            //     ParallelAnimation {
+                            //         id: listEntranceAnim
+                            //         NumberAnimation {
+                            //             target: listDelegateContainer
+                            //             property: "itemScale"
+                            //             from: 0.88
+                            //             to: 1.0
+                            //             duration: 180
+                            //             easing.type: Easing.OutBack
+                            //             easing.overshoot: 1.25
+                            //         }
+                            //         NumberAnimation {
+                            //             target: listDelegateContainer
+                            //             property: "itemOpacity"
+                            //             from: 0.0
+                            //             to: 1.0
+                            //             duration: 150
+                            //             easing.type: Easing.OutQuad
+                            //         }
+                            //     }
+
+                            // Full-depth tree hierarchy connector
+                            Canvas {
+                                id: treeConnectorCanvas
+                                visible: depthVal > 0 || (model.isFolder && model.isExpanded)
+                                width: Math.max(32, cardIndent + 2)
+                                height: parent.height + listView.spacing
+                                anchors.left: parent.left
+                                anchors.top: parent.top
+                                z: 0
+
+                                property int curDepth: depthVal
+                                property bool isExp: model.isExpanded || false
+                                property bool isLast: model.isLastChild || false
+                                property int maskVal: model.ancestorMask || 0
+
+                                onCurDepthChanged: requestPaint()
+                                onIsExpChanged: requestPaint()
+                                onIsLastChanged: requestPaint()
+                                onMaskValChanged: requestPaint()
+                                Component.onCompleted: requestPaint()
+
+                                onPaint: {
+                                    var ctx = getContext("2d");
+                                    ctx.reset();
+
+                                    var depth = depthVal;
+                                    var rowH = parent.height;
+                                    var totalH = height;
+                                    var midY = Math.round(rowH / 2);
+                                    var radius = 6;
+                                    var step = stepSize;
+                                    var mask = model.ancestorMask || 0;
+
+                                    ctx.strokeStyle = "#3e3e42";
+                                    ctx.lineWidth = 0.5;
+                                    ctx.beginPath();
+
+                                    // A. Expanded parent folder: vertical spine under chevron
+                                    if (model.isFolder && model.isExpanded) {
+                                        var fldSpineX = depth * step + 14;
+                                        ctx.moveTo(fldSpineX, midY + 6);
+                                        ctx.lineTo(fldSpineX, totalH);
                                     }
 
-                                    XylaMediaPanelEmpty {
-                                        visible: listView.count === 0
+                                    if (depth <= 0) {
+                                        ctx.stroke();
+                                        return;
+                                    }
+
+                                    // B. Ancestor pass-through lines
+                                    for (var d = 0; d < depth - 1; d++) {
+                                        if (mask & (1 << d)) {
+                                            var spineX = d * step + 14;
+                                            ctx.moveTo(spineX, 0);
+                                            ctx.lineTo(spineX, totalH);
+                                        }
+                                    }
+
+                                    // C. Immediate parent branch line curving into child card with comfortable gap
+                                    var parentSpineX = (depth - 1) * step + 14;
+                                    var isLast = model.isLastChild;
+                                    var targetEndX = cardIndent;
+
+                                    ctx.moveTo(parentSpineX, 0);
+                                    ctx.lineTo(parentSpineX, midY - radius);
+
+                                    // Smooth curved turn with clear spacing into the card
+                                    ctx.quadraticCurveTo(parentSpineX, midY, parentSpineX + radius, midY);
+                                    ctx.lineTo(targetEndX, midY);
+
+                                    // Continue straight down for lower siblings if not last child
+                                    if (!isLast) {
+                                        ctx.moveTo(parentSpineX, midY - radius);
+                                        ctx.lineTo(parentSpineX, totalH);
+                                    }
+
+                                    ctx.stroke();
+                                }
+                            }
+
+                            Rectangle {
+                                id: listDelegateItem
+                                property int itemIndex: index
+                                anchors.fill: parent
+                                anchors.leftMargin: listDelegateContainer.cardIndent
+                                // anchors.leftMargin: (model.depth || 0) * 16
+                                anchors.rightMargin: 0
+                                radius: 5
+                                color: listDropOnFolder.containsDrag ? "#233554" : (panelRoot.isSelected(index) ? panelRoot.bgCardSelected : (itemMouseArea.containsMouse ? panelRoot.bgCardHover : "#1a1a1c"))
+                                border.color: listDropOnFolder.containsDrag ? "#4d88e8" : (panelRoot.isSelected(index) ? panelRoot.accentColor : "transparent")
+                                border.width: 1
+
+                                Behavior on color {
+                                    ColorAnimation {
+                                        duration: 150
+                                        easing.type: Easing.OutCubic
                                     }
                                 }
 
-                                // ================================================================
-                                // GRID VIEW
-                                // ================================================================
-                                GridView {
-                                    id: gridView
-                                    clip: true
-                                    property real gridGap: 12
-                                    property real gridPadding: 10
-                                    topMargin: gridPadding
-                                    bottomMargin: gridPadding
-                                    leftMargin: gridPadding
-                                    rightMargin: gridPadding
-                                    cellWidth: panelRoot.gridCellSize + gridGap
-                                    cellHeight: (panelRoot.gridCellSize * 0.90) + gridGap
-                                    model: panelRoot.activeMediaBinModel
-                                    focus: false
-                                    keyNavigationEnabled: false
-                                    activeFocusOnTab: false
+                                Drag.active: itemMouseArea.drag.active
+                                Drag.dragType: Drag.Automatic
+                                Drag.supportedActions: Qt.CopyAction | Qt.MoveAction
+                                Drag.keys: ["xyla/media-asset", "text/uri-list"]
+                                Drag.source: listDelegateItem
+                                Drag.mimeData: {
+                                    "xyla/media-asset": model.id || "",
+                                    "text/uri-list": model.path ? (model.path.startsWith("file://") ? model.path : "file://" + model.path) : ""
+                                }
+                                Drag.imageSource: model.isFolder ? "qrc:/assets/icons/folder.svg" : (model.path ? ("image://thumbnails/" + model.path + "?width=40") : "qrc:/assets/icons/crop-landscape.svg")
+                                Drag.hotSpot.x: 20
+                                Drag.hotSpot.y: 20
 
-                                    // Place inside GridView (replacing TapHandler):
-                                    // MouseArea {
-                                    //     id: gridBgMouseArea
-                                    //     anchors.fill: parent
-                                    //     z: -1
-                                    //     acceptedButtons: Qt.LeftButton | Qt.RightButton
-                                    //
-                                    //     onClicked: function (mouse) {
-                                    //         panelRoot.editingIndex = -1;
-                                    //         panelRoot.clearSelection();
-                                    //         if (mouse.button === Qt.RightButton) {
-                                    //             var globalPt = mapToItem(Overlay.overlay, mouse.x, mouse.y);
-                                    //             contextMenu.hasSelection = false;
-                                    //             contextMenu.selectionCount = 0;
-                                    //             contextMenu.selectionIsFolder = false;
-                                    //             contextMenu.canPaste = panelRoot.clipboardAssets.length > 0;
-                                    //             contextMenu.openAt(globalPt.x, globalPt.y);
-                                    //         }
-                                    //     }
-                                    // }
-                                    TapHandler {
-                                        acceptedButtons: Qt.LeftButton | Qt.RightButton
-                                        onTapped: function (eventPoint, button) {
-                                            panelRoot.editingIndex = -1;
-                                            panelRoot.clearSelection();
-                                            if (button === Qt.RightButton) {
-                                                contextMenu.hasSelection = false;
-                                                contextMenu.selectionCount = 0;
-                                                contextMenu.selectionIsFolder = false;
-                                                contextMenu.canPaste = panelRoot.clipboardAssets.length > 0;
-                                                contextMenu.openAt(eventPoint.scenePosition.x, eventPoint.scenePosition.y);
-                                            }
+                                // delegate: Rectangle {
+                                //     id: listDelegateItem
+                                //     property int itemIndex: index
+                                //     width: listView.width
+                                //     height: model.isFolder ? 32 : 60
+                                //     radius: 5
+                                //     color: listDropOnFolder.containsDrag ? "#233554" : (panelRoot.isSelected(index) ? panelRoot.bgCardSelected : (itemMouseArea.containsMouse ? panelRoot.bgCardHover : "#1a1a1c")) // "transparent"))
+                                //     border.color: listDropOnFolder.containsDrag ? "#4d88e8" : (panelRoot.isSelected(index) ? panelRoot.accentColor : "transparent")
+                                //     border.width: 1
+                                //
+                                //     Drag.active: itemMouseArea.drag.active
+                                //     Drag.dragType: Drag.Automatic
+                                //     Drag.supportedActions: Qt.CopyAction | Qt.MoveAction
+                                //     Drag.keys: ["xyla/media-asset", "text/uri-list"]
+                                //     Drag.source: listDelegateItem
+                                //     Drag.mimeData: {
+                                //         "xyla/media-asset": model.id || "",
+                                //         "text/uri-list": model.path ? (model.path.startsWith("file://") ? model.path : "file://" + model.path) : ""
+                                //     }
+                                //     // FIX: The Drag image fix here
+                                //     Drag.imageSource: model.isFolder ? "qrc:/assets/icons/folder.svg" : (model.path ? ("image://thumbnails/" + model.path + "?width=40") : "qrc:/assets/icons/crop-landscape.svg")
+                                //     Drag.hotSpot.x: 20
+                                //     Drag.hotSpot.y: 20
+
+                                // Folder drop target in Tree
+                                DropArea {
+                                    id: listDropOnFolder
+                                    anchors.fill: parent
+                                    enabled: model.isFolder
+                                    keys: ["xyla/media-asset", "text/uri-list"]
+
+                                    onEntered: function (drag) {
+                                        if (panelRoot.draggedAssetIds.indexOf(model.id) !== -1) {
+                                            drag.accepted = false;
+                                            return;
+                                        }
+                                        drag.accept(Qt.MoveAction);
+                                    }
+
+                                    onDropped: function (drop) {
+                                        if (!model.isFolder || panelRoot.draggedAssetIds.indexOf(model.id) !== -1) {
+                                            drop.accepted = false;
+                                            return;
+                                        }
+                                        drop.accept(Qt.MoveAction);
+                                        var targetFolderId = model.id;
+                                        var root = panelRoot;
+                                        if (root && root.draggedAssetIds.length > 0 && root.activeMediaBinModel) {
+                                            root.activeMediaBinModel.moveAssetsById(root.draggedAssetIds, targetFolderId);
+                                            // root.clearSelection();
+                                            root.draggedAssetIds = [];
                                         }
                                     }
 
-                                    delegate: Item {
-                                        id: gridDelegateItem
-                                        property int itemIndex: index
-                                        width: gridView.cellWidth - gridView.gridGap
-                                        height: gridView.cellHeight - gridView.gridGap
-
-                                        // 1. Initialize to initial animation state
-                                        property real cardScale: panelRoot.allowEntranceCascade ? 0.82 : 1.0
-                                        property real cardOpacity: panelRoot.allowEntranceCascade ? 0.0 : 1.0
-                                        scale: cardScale
-                                        opacity: cardOpacity
-                                        transformOrigin: Item.Center
-
-                                        // 2. Targeted animation
-                                        function playEntranceAnim() {
-                                            gridTargetedAnim.restart();
-                                        }
-
-                                        // 3. Stagger only runs on initial load / view mode switch
-                                        Component.onCompleted: {
-                                            if (panelRoot.editingIndex === index) {
-                                                grabFocus();
-                                                gridFocusTimer.restart();
-                                            }
-
-                                            if (panelRoot.allowEntranceCascade) {
-                                                gridStaggerTimer.interval = Math.min(index * 25, 300);
-                                                gridStaggerTimer.start();
-                                            }
-                                        }
-
-                                        Timer {
-                                            id: gridStaggerTimer
-                                            repeat: false
-                                            onTriggered: entranceAnim.restart()
-                                        }
-
-                                        // Initial load/mode-switch animation
-                                        ParallelAnimation {
-                                            id: entranceAnim
-                                            NumberAnimation {
-                                                target: gridDelegateItem
-                                                property: "cardScale"
-                                                from: 0.82
-                                                to: 1.0
-                                                duration: 190
-                                                easing.type: Easing.OutBack
-                                                easing.overshoot: 1.35
-                                            }
-                                            NumberAnimation {
-                                                target: gridDelegateItem
-                                                property: "cardOpacity"
-                                                from: 0.0
-                                                to: 1.0
-                                                duration: 160
-                                                easing.type: Easing.OutQuad
-                                            }
-                                        }
-
-                                        // Targeted animation for single modified/renamed/added item
-                                        SequentialAnimation {
-                                            id: gridTargetedAnim
-                                            NumberAnimation {
-                                                target: gridDelegateItem
-                                                property: "cardScale"
-                                                from: 1.0
-                                                to: 1.08
-                                                duration: 120
-                                                easing.type: Easing.OutBack
-                                            }
-                                            NumberAnimation {
-                                                target: gridDelegateItem
-                                                property: "cardScale"
-                                                from: 1.08
-                                                to: 1.0
-                                                duration: 170
-                                                easing.type: Easing.OutQuad
-                                            }
-                                        }
-                                    // delegate: Item {
-                                    //     id: gridDelegateItem
-                                    //     property int itemIndex: index
-                                    //     width: gridView.cellWidth
-                                    //     height: gridView.cellHeight
-                                    //
-                                    //     property real cardScale: 1.0
-                                    //     property real cardOpacity: 1.0
-                                    //     scale: cardScale
-                                    //     opacity: cardOpacity
-                                    //     transformOrigin: Item.Center
-                                    //
-                                    //     function playEntranceAnim() {
-                                    //         entranceAnim.restart();
+                                    // onDropped: function (drop) {
+                                    //     if (!model.isFolder || panelRoot.draggedAssetIds.indexOf(model.id) !== -1) {
+                                    //         drop.accepted = false;
+                                    //         return;
                                     //     }
-                                    //
-                                    //     Component.onCompleted: {
-                                    //         gridStaggerTimer.interval = Math.min(index * 25, 300);
-                                    //         gridStaggerTimer.start();
+                                    //     drop.accept(Qt.MoveAction);
+                                    //     var targetFolderId = model.id;
+                                    //     var root = panelRoot;
+                                    //     if (root && root.draggedAssetIds.length > 0 && root.activeMediaBinModel) {
+                                    //         root.activeMediaBinModel.moveAssetsById(root.draggedAssetIds, targetFolderId);
+                                    //         root.clearSelection();
+                                    //         root.draggedAssetIds = [];
                                     //     }
-                                    //
-                                    //     Timer {
-                                    //         id: gridStaggerTimer
-                                    //         repeat: false
-                                    //         onTriggered: entranceAnim.restart()
+                                    // }
+                                    // onDropped: function (drop) {
+                                    //     if (!model.isFolder || panelRoot.draggedAssetIds.indexOf(model.id) !== -1) {
+                                    //         drop.accepted = false;
+                                    //         return;
                                     //     }
-                                    //
-                                    //     ParallelAnimation {
-                                    //         id: entranceAnim
-                                    //         NumberAnimation {
-                                    //             target: gridDelegateItem
-                                    //             property: "cardScale"
-                                    //             from: 0.82
-                                    //             to: 1.0
-                                    //             duration: 190
-                                    //             easing.type: Easing.OutBack
-                                    //             easing.overshoot: 1.35
-                                    //         }
-                                    //         NumberAnimation {
-                                    //             target: gridDelegateItem
-                                    //             property: "cardOpacity"
-                                    //             from: 0.0
-                                    //             to: 1.0
-                                    //             duration: 160
-                                    //             easing.type: Easing.OutQuad
-                                    //         }
+                                    //     // if (panelRoot.draggedAssetIds.indexOf(model.id) !== -1) {
+                                    //     //     drop.accepted = false;
+                                    //     //     return;
+                                    //     // }
+                                    //     drop.accept(Qt.MoveAction);
+                                    //     var targetFolderId = model.id;
+                                    //     if (panelRoot.draggedAssetIds.length > 0 && panelRoot.activeMediaBinModel) {
+                                    //         panelRoot.activeMediaBinModel.moveAssetsById(panelRoot.draggedAssetIds, targetFolderId);
+                                    //         panelRoot.clearSelection();
+                                    //         panelRoot.draggedAssetIds = [];
                                     //     }
+                                    // }
+                                }
 
-                                        Drag.active: cardMouseArea.drag.active
-                                        Drag.dragType: Drag.Automatic
-                                        Drag.supportedActions: Qt.CopyAction | Qt.MoveAction
-                                        Drag.keys: ["xyla/media-asset", "text/uri-list"]
-                                        Drag.source: gridDelegateItem
-                                        Drag.mimeData: {
-                                            "xyla/media-asset": model.id || "",
-                                            "text/uri-list": model.path ? (model.path.startsWith("file://") ? model.path : "file://" + model.path) : ""
-                                        }
-                                        // FIX: Drag image
-                                        Drag.imageSource: model.isFolder ? "qrc:/assets/icons/folder.svg" : (model.path ? ("image://thumbnails/" + model.path + "?width=120") : "qrc:/assets/icons/crop-landscape.svg")
-                                        Drag.hotSpot.x: 20
-                                        Drag.hotSpot.y: 20
+                                RowLayout {
+                                    anchors.fill: parent
+                                    anchors.leftMargin: 8 // + ((model.depth || 0) * 16)
+                                    anchors.rightMargin: 10
+                                    spacing: 6
+                                    z: 1
 
-                                        // Folder drop target in Grid
-                                        DropArea {
-                                            id: gridDropOnFolder
-                                            anchors.fill: parent
-                                            anchors.margins: 10
-                                            enabled: model.isFolder
-                                            keys: ["xyla/media-asset", "text/uri-list"]
+                                    Item {
+                                        Layout.preferredWidth: 10
+                                        Layout.preferredHeight: 10
+                                        visible: model.isFolder
 
-                                            onEntered: function (drag) {
-                                                if (panelRoot.draggedAssetIds.indexOf(model.id) !== -1) {
-                                                    drag.accepted = false;
-                                                    return;
-                                                }
-                                                drag.accept(Qt.MoveAction);
-                                            }
+                                        Image {
+                                            id: chevronIcon
+                                            anchors.centerIn: parent
+                                            width: 10
+                                            height: 10
+                                            source: "qrc:/assets/icons/chevron-down.svg"
+                                            fillMode: Image.PreserveAspectFit
+                                            smooth: true
+                                            transformOrigin: Item.Center
+                                            rotation: model.isExpanded ? 0 : -90
 
-                                            onDropped: function (drop) {
-                                                if (!model.isFolder || panelRoot.draggedAssetIds.indexOf(model.id) !== -1) {
-                                                    drop.accepted = false;
-                                                    return;
-                                                }
-                                                drop.accept(Qt.MoveAction);
-                                                var targetFolderId = model.id;
-                                                var root = panelRoot;
-                                                if (root && root.draggedAssetIds.length > 0 && root.activeMediaBinModel) {
-                                                    root.activeMediaBinModel.moveAssetsById(root.draggedAssetIds, targetFolderId);
-                                                    // root.clearSelection();
-                                                    root.draggedAssetIds = [];
-                                                }
-                                            }
-                                            // onEntered: function (drag) {
-                                            //     if (panelRoot.draggedAssetIds.indexOf(model.id) !== -1) {
-                                            //         drag.accepted = false;
-                                            //         return;
-                                            //     }
-                                            //     drag.accept(Qt.MoveAction);
-                                            // }
-                                            //
-                                            // onDropped: function (drop) {
-                                            //     if (panelRoot.draggedAssetIds.indexOf(model.id) !== -1) {
-                                            //         drop.accepted = false;
-                                            //         return;
-                                            //     }
-                                            //     drop.accept(Qt.MoveAction);
-                                            //     var targetFolderId = model.id;
-                                            //     if (panelRoot.draggedAssetIds.length > 0 && panelRoot.activeMediaBinModel) {
-                                            //         panelRoot.activeMediaBinModel.moveAssetsById(panelRoot.draggedAssetIds, targetFolderId);
-                                            //         panelRoot.clearSelection();
-                                            //         panelRoot.draggedAssetIds = [];
-                                            //     }
-                                            // }
-                                        }
-
-                                        Rectangle {
-                                            anchors.fill: parent
-                                            // anchors.margins: 5
-                                            radius: 12
-                                            color: gridDropOnFolder.containsDrag ? "#233554" : (panelRoot.isSelected(index) ? "#1c2538" : (cardMouseArea.containsMouse ? "#222225" : panelRoot.bgCard))
-                                            border.color: gridDropOnFolder.containsDrag ? "#4d88e8" : (panelRoot.isSelected(index) ? "#2555D3" : (cardMouseArea.containsMouse ? "#3a3a3d" : "#28282a"))
-                                            border.width: 1 // (panelRoot.isSelected(index) || gridDropOnFolder.containsDrag) ? 1.5 : 1
-
-                                            Behavior on color {
-                                                ColorAnimation {
-                                                    duration: 150
+                                            Behavior on rotation {
+                                                NumberAnimation {
+                                                    duration: 180
                                                     easing.type: Easing.OutCubic
                                                 }
                                             }
 
+                                            // Color overlay using MultiEffect
+                                            layer.enabled: true
+                                            layer.effect: MultiEffect {
+                                                colorization: 1.0
+                                                colorizationColor: treeChevronMouse.containsMouse ? "#ffffff" : "#808080"
 
-                                            ColumnLayout {
-                                                anchors.fill: parent
-                                                anchors.margins: 7
-                                                // spacing: 8
-                                                spacing: panelRoot.editingIndex === index ? 6 : 8
-
-                                                Rectangle {
-                                                    id: thumbFrame
-                                                    Layout.fillWidth: true
-                                                    Layout.fillHeight: true
-                                                    radius: 8
-                                                    color: "#121213"
-
-                                                    layer.enabled: true
-                                                    layer.effect: MultiEffect {
-                                                        maskEnabled: true
-                                                        maskThresholdMin: 0.5
-                                                        maskSpreadAtMin: 1.0
-                                                        maskSource: ShaderEffectSource {
-                                                            sourceItem: Rectangle {
-                                                                width: thumbFrame.width
-                                                                height: thumbFrame.height
-                                                                radius: thumbFrame.radius
-                                                            }
-                                                        }
+                                                Behavior on colorizationColor {
+                                                    ColorAnimation {
+                                                        duration: 120
                                                     }
+                                                }
+                                            }
+                                        }
 
+                                        MouseArea {
+                                            id: treeChevronMouse
+                                            anchors.fill: parent
+                                            hoverEnabled: true
+                                            cursorShape: Qt.PointingHandCursor
+                                            onClicked: {
+                                                if (panelRoot.activeMediaBinModel) {
+                                                    panelRoot.activeMediaBinModel.toggleFolderExpanded(model.id);
+                                                }
+                                            }
+                                        }
+                                    }
+                                    // Item {
+                                    //     Layout.preferredWidth: 10
+                                    //     Layout.preferredHeight: 10
+                                    //     visible: model.isFolder
+                                    //
+                                    //     Item {
+                                    //         id: chevronContainer
+                                    //         anchors.fill: parent
+                                    //         rotation: model.isExpanded ? 0 : 270
+                                    //
+                                    //         Behavior on rotation {
+                                    //             NumberAnimation {
+                                    //                 duration: 160
+                                    //                 easing.type: Easing.OutCubic
+                                    //             }
+                                    //         }
+                                    //
+                                    //         Image {
+                                    //             id: chevronIcon
+                                    //             anchors.fill: parent
+                                    //             source: "qrc:/assets/icons/chevron-down.svg"
+                                    //             fillMode: Image.PreserveAspectFit
+                                    //             smooth: true
+                                    //             visible: false
+                                    //         }
+                                    //
+                                    //         MultiEffect {
+                                    //             source: chevronIcon
+                                    //             anchors.fill: chevronIcon
+                                    //             colorization: 1.0
+                                    //             colorizationColor: treeChevronMouse.containsMouse ? "#ffffff" : "#808080"
+                                    //
+                                    //             Behavior on colorizationColor {
+                                    //                 ColorAnimation {
+                                    //                     duration: 120
+                                    //                 }
+                                    //             }
+                                    //         }
+                                    //     }
+                                    //
+                                    //     MouseArea {
+                                    //         id: treeChevronMouse
+                                    //         anchors.fill: parent
+                                    //         hoverEnabled: true
+                                    //         cursorShape: Qt.PointingHandCursor
+                                    //         onClicked: {
+                                    //             if (panelRoot.activeMediaBinModel) {
+                                    //                 panelRoot.activeMediaBinModel.toggleFolderExpanded(model.id);
+                                    //             }
+                                    //         }
+                                    //     }
+                                    // }
+
+                                    Item {
+                                        Layout.preferredWidth: 10
+                                        Layout.preferredHeight: 10
+                                        visible: !model.isFolder
+                                    }
+
+                                    Rectangle {
+                                        id: thumbFrame_
+                                        visible: !model.isFolder
+                                        width: 70
+                                        height: 48
+                                        // Layout.fillWidth: true
+                                        // Layout.fillHeight: true
+                                        radius: 5
+                                        color: "#121213"
+
+                                        // Mask item defined cleanly with proper binding sizes
+                                        Item {
+                                            id: maskContainer
+                                            width: thumbFrame_.width
+                                            height: thumbFrame_.height
+                                            visible: false
+
+                                            Rectangle {
+                                                width: parent.width
+                                                height: parent.height
+                                                radius: thumbFrame_.radius
+                                                color: "black"
+                                            }
+                                        }
+
+                                        Image {
+                                            anchors.fill: parent
+                                            sourceSize.width: width
+                                            sourceSize.height: height
+                                            fillMode: Image.PreserveAspectCrop
+                                            clip: true
+                                            source: model.path ? "image://thumbnails/" + model.path + "?width=" + Math.round(panelRoot.gridCellSize * 1.5) : ""
+                                            asynchronous: true
+
+                                            layer.enabled: true
+                                            layer.effect: MultiEffect {
+                                                maskEnabled: true
+                                                maskSource: ShaderEffectSource {
+                                                    sourceItem: maskContainer
+                                                    live: true
+                                                    hideSource: true
+                                                }
+                                            }
+                                        }
+                                    }
+
+                                    Image {
+                                        visible: model.isFolder
+                                        source: model.isExpanded ? "qrc:/assets/icons/folder-open.svg" : "qrc:/assets/icons/folder.svg"
+                                        sourceSize.width: 15
+                                        sourceSize.height: 15
+                                        opacity: model.isFolder ? 0.95 : 0.75
+                                    }
+
+                                    Text {
+                                        id: nameText
+                                        visible: panelRoot.editingIndex !== index
+                                        text: model.isFolder ? (model.name || "") : panelRoot.displayName(model.name || "", panelRoot.showExtensions)
+                                        color: panelRoot.textPrimary
+                                        font.pixelSize: 12
+                                        font.weight: model.isFolder ? Font.Medium : Font.Normal
+                                        elide: Text.ElideRight
+                                        Layout.fillWidth: true
+                                    }
+
+                                    TextField {
+                                        id: renameField
+                                        visible: panelRoot.editingIndex === index
+                                        Layout.fillWidth: true
+                                        z: 20
+                                        text: model.name || ""
+                                        font.pixelSize: 12
+                                        color: "#ffffff"
+                                        selectByMouse: true
+                                        focus: visible
+                                        background: Rectangle {
+                                            color: "#121212"
+                                            radius: 6
+                                        }
+
+                                        property bool isReady: false
+
+                                        function grabFocus() {
+                                            renameField.forceActiveFocus();
+                                            renameField.selectAll();
+                                        }
+
+                                        onVisibleChanged: {
+                                            if (visible) {
+                                                isReady = false;
+                                                text = model.name || "";
+                                                grabFocus();
+                                                listFocusTimer.restart();
+                                            } else {
+                                                isReady = false;
+                                            }
+                                        }
+
+                                        Timer {
+                                            id: listFocusTimer
+                                            interval: 160
+                                            repeat: false
+                                            onTriggered: {
+                                                if (renameField.visible) {
+                                                    renameField.grabFocus();
+                                                    renameField.isReady = true;
+                                                }
+                                            }
+                                        }
+
+                                        onActiveFocusChanged: {
+                                            if (!activeFocus && isReady && visible) {
+                                                commitRename();
+                                            }
+                                        }
+
+                                        Keys.onReturnPressed: commitRename()
+                                        Keys.onEnterPressed: commitRename()
+                                        Keys.onEscapePressed: panelRoot.editingIndex = -1
+
+                                        function commitRename() {
+                                            if (panelRoot.editingIndex === index && panelRoot.activeMediaBinModel) {
+                                                let newName = text.trim();
+                                                panelRoot.editingIndex = -1;
+                                                if (newName !== "" && newName !== model.name) {
+                                                    panelRoot.activeMediaBinModel.renameAsset(index, newName);
+                                                }
+                                            } else {
+                                                panelRoot.editingIndex = -1;
+                                            }
+                                        }
+                                    }
+                                    // TextField {
+                                    //     id: renameField
+                                    //     visible: panelRoot.editingIndex === index
+                                    //     Layout.fillWidth: true
+                                    //     z: 20
+                                    //     text: model.name || ""
+                                    //     font.pixelSize: 12
+                                    //     color: "#ffffff"
+                                    //     selectByMouse: true
+                                    //     focus: visible
+                                    //     background: Rectangle {
+                                    //         color: "#121212"
+                                    //         // border.color: panelRoot.accentColor
+                                    //         // border.width: 1.5
+                                    //         radius: 6
+                                    //     }
+                                    //
+                                    //     property bool isReady: false
+                                    //
+                                    //     function grabFocus() {
+                                    //         renameField.forceActiveFocus();
+                                    //         renameField.selectAll();
+                                    //     }
+                                    //
+                                    //     onVisibleChanged: {
+                                    //         if (visible) {
+                                    //             isReady = false;
+                                    //             text = model.name || "";
+                                    //             grabFocus();
+                                    //             listFocusTimer.restart();
+                                    //         } else {
+                                    //             isReady = false;
+                                    //         }
+                                    //     }
+                                    //
+                                    //     Timer {
+                                    //         id: listFocusTimer
+                                    //         interval: 160
+                                    //         repeat: false
+                                    //         onTriggered: {
+                                    //             if (renameField.visible) {
+                                    //                 renameField.grabFocus();
+                                    //                 renameField.isReady = true;
+                                    //             }
+                                    //         }
+                                    //     }
+                                    //
+                                    //     onActiveFocusChanged: {
+                                    //         if (!activeFocus && isReady && visible) {
+                                    //             commitRename();
+                                    //         }
+                                    //     }
+                                    //
+                                    //     Keys.onReturnPressed: commitRename()
+                                    //     Keys.onEnterPressed: commitRename()
+                                    //     Keys.onEscapePressed: panelRoot.editingIndex = -1
+                                    //
+                                    //     function commitRename() {
+                                    //         if (panelRoot.editingIndex === index && panelRoot.activeMediaBinModel) {
+                                    //             let newName = text.trim();
+                                    //             panelRoot.editingIndex = -1;
+                                    //             if (newName !== "" && newName !== model.name) {
+                                    //                 panelRoot.activeMediaBinModel.renameAsset(index, newName);
+                                    //             }
+                                    //         } else {
+                                    //             panelRoot.editingIndex = -1;
+                                    //         }
+                                    //     }
+                                    // }
+
+                                    Text {
+                                        text: model.resolution || ""
+                                        color: "#666666"
+                                        font.pixelSize: 10
+                                        visible: !model.isFolder && panelRoot.editingIndex !== index
+                                    }
+
+                                    Text {
+                                        text: model.duration || ""
+                                        color: "#888888"
+                                        font.pixelSize: 11
+                                        visible: !model.isFolder && panelRoot.editingIndex !== index
+                                    }
+                                }
+
+                                MouseArea {
+                                    id: itemMouseArea
+                                    anchors.fill: parent
+                                    hoverEnabled: true
+                                    enabled: panelRoot.editingIndex === -1
+                                    acceptedButtons: Qt.LeftButton | Qt.RightButton
+                                    drag.target: globalDummyDragTarget
+                                    drag.threshold: 5
+
+                                    // Item {
+                                    //     id: listDummyDragTarget
+                                    // }
+
+                                    onPressed: function (mouse) {
+                                        // dragPreview.visible = false;
+
+                                        if (panelRoot.editingIndex !== -1 && panelRoot.editingIndex !== index) {
+                                            panelRoot.editingIndex = -1;
+                                        }
+
+                                        if (mouse.button === Qt.LeftButton) {
+                                            if (mouse.modifiers & Qt.ShiftModifier && panelRoot.lastSelectedIndex >= 0) {
+                                                panelRoot.selectRange(panelRoot.lastSelectedIndex, index);
+                                            } else if (mouse.modifiers & (Qt.ControlModifier | Qt.MetaModifier)) {
+                                                panelRoot.toggleSelect(index);
+                                            } else if (!panelRoot.isSelected(index)) {
+                                                panelRoot.selectSingle(index);
+                                            }
+
+                                            panelRoot.draggedAssetIds = panelRoot.getSelectedAssetIds();
+                                            panelRoot.dragPreviewName = model.name || "";
+                                            panelRoot.dragPreviewPath = model.path || "";
+                                            panelRoot.dragPreviewIsFolder = model.isFolder;
+                                            panelRoot.dragCount = Math.max(1, panelRoot.selectedIndices.length);
+                                        }
+                                    }
+                                    // onPressed: function (mouse) {
+                                    //     dragPreview.isFolder = model.isFolder
+                                    //     dragPreview.path = model.path
+                                    //     dragPreview.visible = true
+                                    //
+                                    //     if (panelRoot.editingIndex !== -1 && panelRoot.editingIndex !== index) {
+                                    //         panelRoot.editingIndex = -1;
+                                    //     }
+                                    //     if (mouse.button === Qt.LeftButton) {
+                                    //         if (mouse.modifiers & Qt.ShiftModifier && panelRoot.lastSelectedIndex >= 0) {
+                                    //             panelRoot.selectRange(panelRoot.lastSelectedIndex, index);
+                                    //         } else if (mouse.modifiers & (Qt.ControlModifier | Qt.MetaModifier)) {
+                                    //             panelRoot.toggleSelect(index);
+                                    //         } else if (!panelRoot.isSelected(index)) {
+                                    //             panelRoot.selectSingle(index);
+                                    //         }
+                                    //
+                                    //         panelRoot.draggedAssetIds = panelRoot.getSelectedAssetIds();
+                                    //         panelRoot.dragPreviewName = model.name || "";
+                                    //         panelRoot.dragPreviewPath = model.path || "";
+                                    //         panelRoot.dragPreviewIsFolder = model.isFolder;
+                                    //         panelRoot.dragCount = Math.max(1, panelRoot.selectedIndices.length);
+                                    //     }
+                                    // }
+
+                                    onPositionChanged: function (mouse) {
+                                        if (!itemMouseArea.drag.active)
+                                            return;
+
+                                        var pt = itemMouseArea.mapToItem(Overlay.overlay, mouse.x, mouse.y);
+
+                                        // dragPreview.x = pt.x + 14;
+                                        // dragPreview.y = pt.y + 14;
+
+                                        // listDelegateItem.Drag.active = true;
+                                        panelRoot.isCustomDragging = true;
+
+                                        panelRoot.dragGlobalX = pt.x;
+                                        panelRoot.dragGlobalY = pt.y;
+
+                                    // Only becomes visible after the drag threshold is crossed.
+                                    // if (!dragPreview.visible) {
+                                    //     dragPreview.isFolder = model.isFolder;
+                                    //     dragPreview.path = model.path || "";
+                                    //     dragPreview.visible = true;
+                                    // }
+                                    }
+                                    // onPositionChanged: function (mouse) {
+                                    //     if (pressed) {
+                                    //         dragPreview.x = mouse.x + 14
+                                    //         dragPreview.y = mouse.y + 14
+                                    //     }
+                                    //
+                                    //     if (itemMouseArea.drag.active) {
+                                    //         listDelegateItem.Drag.active = true;
+                                    //         panelRoot.isCustomDragging = true;
+                                    //         var pt = mapToItem(Overlay.overlay, mouse.x, mouse.y);
+                                    //         panelRoot.dragGlobalX = pt.x;
+                                    //         panelRoot.dragGlobalY = pt.y;
+                                    //     }
+                                    // }
+
+                                    onReleased: function (mouse) {
+                                        // listDelegateItem.Drag.active = false;
+                                        panelRoot.isCustomDragging = false;
+                                    // dragPreview.visible = false;
+                                    }
+
+                                    onCanceled: {
+                                        // listDelegateItem.Drag.active = false;
+                                        panelRoot.isCustomDragging = false;
+                                        // dragPreview.visible = false;
+                                    }
+                                    // onPositionChanged: function (mouse) {
+                                    //     if (itemMouseArea.drag.active) {
+                                    //         panelRoot.isCustomDragging = true;
+                                    //         var pt = mapToItem(Overlay.overlay, mouse.x, mouse.y);
+                                    //         panelRoot.dragGlobalX = pt.x;
+                                    //         panelRoot.dragGlobalY = pt.y;
+                                    //     }
+                                    // }
+                                    //
+                                    // onReleased: function (mouse) {
+                                    //     panelRoot.isCustomDragging = false;
+                                    // }
+                                    // onCanceled: {
+                                    //     panelRoot.isCustomDragging = false;
+                                    // }
+
+                                    onClicked: function (mouse) {
+                                        if (mouse.button === Qt.LeftButton) {
+                                            if (!(mouse.modifiers & (Qt.ShiftModifier | Qt.ControlModifier | Qt.MetaModifier))) {
+                                                panelRoot.selectSingle(index);
+                                            }
+                                        } else if (mouse.button === Qt.RightButton) {
+                                            if (!panelRoot.isSelected(index)) {
+                                                panelRoot.selectSingle(index);
+                                            }
+                                            let globalPoint = mapToItem(Overlay.overlay, mouse.x, mouse.y);
+                                            contextMenu.hasSelection = true;
+                                            contextMenu.selectionCount = Math.max(1, panelRoot.selectedIndices.length);
+                                            contextMenu.selectionIsFolder = (contextMenu.selectionCount === 1 && model.isFolder);
+                                            contextMenu.canPaste = panelRoot.clipboardAssets.length > 0;
+                                            contextMenu.openAt(globalPoint.x, globalPoint.y);
+                                        }
+                                    }
+
+                                    onDoubleClicked: function (mouse) {
+                                        if (mouse.button === Qt.LeftButton && model.isFolder) {
+                                            if (panelRoot.activeMediaBinModel) {
+                                                panelRoot.activeMediaBinModel.toggleFolderExpanded(model.id);
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+
+                        XylaMediaPanelEmpty {
+                            visible: listView.count === 0
+                        }
+                    }
+
+                    // ================================================================
+                    // GRID VIEW
+                    // ================================================================
+                    GridView {
+                        id: gridView
+                        clip: true
+                        property real gridGap: 12
+                        property real gridPadding: 10
+                        topMargin: gridPadding
+                        bottomMargin: gridPadding
+                        leftMargin: gridPadding
+                        rightMargin: gridPadding
+                        cellWidth: panelRoot.gridCellSize + gridGap
+                        cellHeight: (panelRoot.gridCellSize * 0.90) + gridGap
+                        model: panelRoot.activeMediaBinModel
+                        focus: false
+                        keyNavigationEnabled: false
+                        activeFocusOnTab: false
+
+                        // Place inside GridView (replacing TapHandler):
+                        // MouseArea {
+                        //     id: gridBgMouseArea
+                        //     anchors.fill: parent
+                        //     z: -1
+                        //     acceptedButtons: Qt.LeftButton | Qt.RightButton
+                        //
+                        //     onClicked: function (mouse) {
+                        //         panelRoot.editingIndex = -1;
+                        //         panelRoot.clearSelection();
+                        //         if (mouse.button === Qt.RightButton) {
+                        //             var globalPt = mapToItem(Overlay.overlay, mouse.x, mouse.y);
+                        //             contextMenu.hasSelection = false;
+                        //             contextMenu.selectionCount = 0;
+                        //             contextMenu.selectionIsFolder = false;
+                        //             contextMenu.canPaste = panelRoot.clipboardAssets.length > 0;
+                        //             contextMenu.openAt(globalPt.x, globalPt.y);
+                        //         }
+                        //     }
+                        // }
+                        TapHandler {
+                            acceptedButtons: Qt.LeftButton | Qt.RightButton
+                            onTapped: function (eventPoint, button) {
+                                panelRoot.editingIndex = -1;
+                                panelRoot.clearSelection();
+                                if (button === Qt.RightButton) {
+                                    contextMenu.hasSelection = false;
+                                    contextMenu.selectionCount = 0;
+                                    contextMenu.selectionIsFolder = false;
+                                    contextMenu.canPaste = panelRoot.clipboardAssets.length > 0;
+                                    contextMenu.openAt(eventPoint.scenePosition.x, eventPoint.scenePosition.y);
+                                }
+                            }
+                        }
+
+                        delegate: Item {
+                            id: gridDelegateItem
+                            property int itemIndex: index
+                            width: gridView.cellWidth - gridView.gridGap
+                            height: gridView.cellHeight - gridView.gridGap
+
+                            // 1. Initialize to initial animation state
+                            property real cardScale: panelRoot.allowEntranceCascade ? 0.82 : 1.0
+                            property real cardOpacity: panelRoot.allowEntranceCascade ? 0.0 : 1.0
+                            scale: cardScale
+                            opacity: cardOpacity
+                            transformOrigin: Item.Center
+
+                            // 2. Targeted animation
+                            function playEntranceAnim() {
+                                gridTargetedAnim.restart();
+                            }
+
+                            // 3. Stagger only runs on initial load / view mode switch
+                            Component.onCompleted: {
+                                if (panelRoot.editingIndex === index) {
+                                    grabFocus();
+                                    gridFocusTimer.restart();
+                                }
+
+                                if (panelRoot.allowEntranceCascade) {
+                                    gridStaggerTimer.interval = Math.min(index * 25, 300);
+                                    gridStaggerTimer.start();
+                                }
+                            }
+
+                            Timer {
+                                id: gridStaggerTimer
+                                repeat: false
+                                onTriggered: entranceAnim.restart()
+                            }
+
+                            // Initial load/mode-switch animation
+                            ParallelAnimation {
+                                id: entranceAnim
+                                NumberAnimation {
+                                    target: gridDelegateItem
+                                    property: "cardScale"
+                                    from: 0.82
+                                    to: 1.0
+                                    duration: 190
+                                    easing.type: Easing.OutBack
+                                    easing.overshoot: 1.35
+                                }
+                                NumberAnimation {
+                                    target: gridDelegateItem
+                                    property: "cardOpacity"
+                                    from: 0.0
+                                    to: 1.0
+                                    duration: 160
+                                    easing.type: Easing.OutQuad
+                                }
+                            }
+
+                            // Targeted animation for single modified/renamed/added item
+                            SequentialAnimation {
+                                id: gridTargetedAnim
+                                NumberAnimation {
+                                    target: gridDelegateItem
+                                    property: "cardScale"
+                                    from: 1.0
+                                    to: 1.08
+                                    duration: 120
+                                    easing.type: Easing.OutBack
+                                }
+                                NumberAnimation {
+                                    target: gridDelegateItem
+                                    property: "cardScale"
+                                    from: 1.08
+                                    to: 1.0
+                                    duration: 170
+                                    easing.type: Easing.OutQuad
+                                }
+                            }
+                            // delegate: Item {
+                            //     id: gridDelegateItem
+                            //     property int itemIndex: index
+                            //     width: gridView.cellWidth
+                            //     height: gridView.cellHeight
+                            //
+                            //     property real cardScale: 1.0
+                            //     property real cardOpacity: 1.0
+                            //     scale: cardScale
+                            //     opacity: cardOpacity
+                            //     transformOrigin: Item.Center
+                            //
+                            //     function playEntranceAnim() {
+                            //         entranceAnim.restart();
+                            //     }
+                            //
+                            //     Component.onCompleted: {
+                            //         gridStaggerTimer.interval = Math.min(index * 25, 300);
+                            //         gridStaggerTimer.start();
+                            //     }
+                            //
+                            //     Timer {
+                            //         id: gridStaggerTimer
+                            //         repeat: false
+                            //         onTriggered: entranceAnim.restart()
+                            //     }
+                            //
+                            //     ParallelAnimation {
+                            //         id: entranceAnim
+                            //         NumberAnimation {
+                            //             target: gridDelegateItem
+                            //             property: "cardScale"
+                            //             from: 0.82
+                            //             to: 1.0
+                            //             duration: 190
+                            //             easing.type: Easing.OutBack
+                            //             easing.overshoot: 1.35
+                            //         }
+                            //         NumberAnimation {
+                            //             target: gridDelegateItem
+                            //             property: "cardOpacity"
+                            //             from: 0.0
+                            //             to: 1.0
+                            //             duration: 160
+                            //             easing.type: Easing.OutQuad
+                            //         }
+                            //     }
+
+                            Drag.active: cardMouseArea.drag.active
+                            Drag.dragType: Drag.Automatic
+                            Drag.supportedActions: Qt.CopyAction | Qt.MoveAction
+                            Drag.keys: ["xyla/media-asset", "text/uri-list"]
+                            Drag.source: gridDelegateItem
+                            Drag.mimeData: {
+                                "xyla/media-asset": model.id || "",
+                                "text/uri-list": model.path ? (model.path.startsWith("file://") ? model.path : "file://" + model.path) : ""
+                            }
+                            // FIX: Drag image
+                            Drag.imageSource: model.isFolder ? "qrc:/assets/icons/folder.svg" : (model.path ? ("image://thumbnails/" + model.path + "?width=120") : "qrc:/assets/icons/crop-landscape.svg")
+                            Drag.hotSpot.x: 20
+                            Drag.hotSpot.y: 20
+
+                            // Folder drop target in Grid
+                            DropArea {
+                                id: gridDropOnFolder
+                                anchors.fill: parent
+                                anchors.margins: 10
+                                enabled: model.isFolder
+                                keys: ["xyla/media-asset", "text/uri-list"]
+
+                                onEntered: function (drag) {
+                                    if (panelRoot.draggedAssetIds.indexOf(model.id) !== -1) {
+                                        drag.accepted = false;
+                                        return;
+                                    }
+                                    drag.accept(Qt.MoveAction);
+                                }
+
+                                onDropped: function (drop) {
+                                    if (!model.isFolder || panelRoot.draggedAssetIds.indexOf(model.id) !== -1) {
+                                        drop.accepted = false;
+                                        return;
+                                    }
+                                    drop.accept(Qt.MoveAction);
+                                    var targetFolderId = model.id;
+                                    var root = panelRoot;
+                                    if (root && root.draggedAssetIds.length > 0 && root.activeMediaBinModel) {
+                                        root.activeMediaBinModel.moveAssetsById(root.draggedAssetIds, targetFolderId);
+                                        // root.clearSelection();
+                                        root.draggedAssetIds = [];
+                                    }
+                                }
+                                // onEntered: function (drag) {
+                                //     if (panelRoot.draggedAssetIds.indexOf(model.id) !== -1) {
+                                //         drag.accepted = false;
+                                //         return;
+                                //     }
+                                //     drag.accept(Qt.MoveAction);
+                                // }
+                                //
+                                // onDropped: function (drop) {
+                                //     if (panelRoot.draggedAssetIds.indexOf(model.id) !== -1) {
+                                //         drop.accepted = false;
+                                //         return;
+                                //     }
+                                //     drop.accept(Qt.MoveAction);
+                                //     var targetFolderId = model.id;
+                                //     if (panelRoot.draggedAssetIds.length > 0 && panelRoot.activeMediaBinModel) {
+                                //         panelRoot.activeMediaBinModel.moveAssetsById(panelRoot.draggedAssetIds, targetFolderId);
+                                //         panelRoot.clearSelection();
+                                //         panelRoot.draggedAssetIds = [];
+                                //     }
+                                // }
+                            }
+
+                            Rectangle {
+                                anchors.fill: parent
+                                // anchors.margins: 5
+                                radius: 12
+                                color: gridDropOnFolder.containsDrag ? "#233554" : (panelRoot.isSelected(index) ? "#1c2538" : (cardMouseArea.containsMouse ? "#222225" : panelRoot.bgCard))
+                                border.color: gridDropOnFolder.containsDrag ? "#4d88e8" : (panelRoot.isSelected(index) ? "#2555D3" : (cardMouseArea.containsMouse ? "#3a3a3d" : "#28282a"))
+                                border.width: 1 // (panelRoot.isSelected(index) || gridDropOnFolder.containsDrag) ? 1.5 : 1
+
+                                Behavior on color {
+                                    ColorAnimation {
+                                        duration: 150
+                                        easing.type: Easing.OutCubic
+                                    }
+                                }
+
+                                ColumnLayout {
+                                    anchors.fill: parent
+                                    anchors.margins: 7
+                                    // spacing: 8
+                                    spacing: panelRoot.editingIndex === index ? 6 : 8
+
+                                    Rectangle {
+                                        id: thumbFrame
+                                        Layout.fillWidth: true
+                                        Layout.fillHeight: true
+                                        radius: 8
+                                        color: "#121213"
+
+                                        layer.enabled: true
+                                        layer.effect: MultiEffect {
+                                            maskEnabled: true
+                                            maskThresholdMin: 0.5
+                                            maskSpreadAtMin: 1.0
+                                            maskSource: ShaderEffectSource {
+                                                sourceItem: Rectangle {
+                                                    width: thumbFrame.width
+                                                    height: thumbFrame.height
+                                                    radius: thumbFrame.radius
+                                                }
+                                            }
+                                        }
 
                                         Image {
                                             anchors.fill: parent
@@ -3434,554 +3437,554 @@ XylaIconButton {
 
                                         ////////////////////////////////////////////////////////////////////////////////////////////
 
-Item {
-    id: folderContents
-    anchors.fill: parent
-    visible: model.isFolder
-
-    // Helper property to fetch current folder contents dynamically
-    readonly property var folderItems: (model.isFolder && model.id !== undefined) ? getFolderContents(model.id, false) : []
-    readonly property int itemCount: folderItems.length
-
-    // Custom SVG Path for folder items (Update this source string to your local SVG path)
-    readonly property string folderSvgSrc: "qrc:/icons/folder.svg"
-
-    // ========================================================
-    // FOLDER COVER GEOMETRY
-    // ========================================================
-    property real folderStartY: 46
-    property real folderBottom: 8
-    property real folderRightY: 58
-    property real folderRightCurveX: 6
-    property real folderRightCurveY: 52
-    property real folderTabEnd: 0.62
-    property real folderTabStart: 0.48
-    property real folderCurve1: 0.58
-    property real folderCurve2: 0.56
-    property real folderTabY: 40
-    property real folderTabLeft: 8
-
-    // ========================================================
-    // BUBBLE DOTS (MINIMUM Z-INDEX)
-    // ========================================================
-    // 1. LARGER BUBBLE DOT (RIGHT)
-    Rectangle {
-        z: -1
-        x: parent.width * 0.82
-        y: parent.height * 0.32
-        width: 4
-        height: 4
-        radius: 2
-        color: "#444444"
-    }
-
-    // 2. SMALL ACCENT BUBBLE DOT (CENTER-LEFT)
-    Rectangle {
-        z: -1
-        x: parent.width * 0.14
-        y: parent.height * 0.24
-        width: 6
-        height: 6
-        radius: 3
-        color: "#3a3a3a"
-    }
-
-    // ========================================================
-    // 0 ITEMS: DEFAULT EMPTY ARTWORK
-    // ========================================================
-    Item {
-        id: emptyFolderArtifact
-        visible: folderContents.itemCount === 0
-        width: parent.width
-        height: parent.height
-        y: -5
-
-        // PHOTO ITEM CARD
-        Rectangle {
-            id: photoCard
-            z: 1
-            x: parent.width * 0.30
-            y: parent.height * 0.14
-            width: parent.width * 0.23
-            height: width * 1.12
-            opacity: 0.3
-            radius: 7
-            rotation: -6
-
-            color: "#28282b"
-            border.width: 1
-            border.color: "#48484c"
-
-            Rectangle {
-                anchors.fill: parent
-                anchors.margins: 4
-                radius: 5
-                color: "#1e1e20"
-
-                Canvas {
-                    anchors.fill: parent
-                    anchors.margins: 4
-
-                    onPaint: {
-                        var ctx = getContext("2d");
-                        ctx.clearRect(0, 0, width, height);
-
-                        ctx.fillStyle = "#6e6e73";
-                        ctx.beginPath();
-                        ctx.arc(width * 0.65, height * 0.30, 3, 0, 2 * Math.PI);
-                        ctx.fill();
-
-                        ctx.fillStyle = "#55555a";
-                        ctx.beginPath();
-                        ctx.moveTo(0, height);
-                        ctx.lineTo(width * 0.38, height * 0.45);
-                        ctx.lineTo(width * 0.60, height * 0.70);
-                        ctx.lineTo(width * 0.80, height * 0.52);
-                        ctx.lineTo(width, height);
-                        ctx.closePath();
-                        ctx.fill();
-                    }
-                }
-            }
-        }
-
-        // VIDEO PALETTE CARD
-        Rectangle {
-            id: videoCard
-            z: 2
-            x: parent.width * 0.54
-            y: parent.height * 0.20
-            width: parent.width * 0.21
-            height: width * 1.12
-            opacity: 0.3
-            radius: 7
-            rotation: 10
-
-            color: "#252528"
-            border.width: 1
-            border.color: "#424246"
-
-            Rectangle {
-                anchors.fill: parent
-                anchors.margins: 4
-                radius: 5
-                color: "#1a1a1c"
-
-                Canvas {
-                    anchors.centerIn: parent
-                    width: 12
-                    height: 12
-
-                    onPaint: {
-                        var ctx = getContext("2d");
-                        ctx.clearRect(0, 0, width, height);
-
-                        ctx.fillStyle = "#68686d";
-                        ctx.beginPath();
-                        ctx.moveTo(3, 1);
-                        ctx.lineTo(11, 6);
-                        ctx.lineTo(3, 11);
-                        ctx.closePath();
-                        ctx.fill();
-                    }
-                }
-            }
-        }
-
-        // DASHED CARD PLACEHOLDER
-        Canvas {
-            id: dashedCard
-            z: 5
-            x: parent.width * 0.10
-            y: parent.height * 0.16
-            width: parent.width * 0.24
-            height: width * 1.15
-            rotation: -14
-
-            onPaint: {
-                var ctx = getContext("2d");
-                ctx.clearRect(0, 0, width, height);
-
-                ctx.save();
-                ctx.beginPath();
-                
-                var r = 6;
-                var w = width - 2;
-                var h = height - 2;
-
-                ctx.moveTo(r + 1, 1);
-                ctx.arcTo(w + 1, 1, w + 1, h + 1, r);
-                ctx.arcTo(w + 1, h + 1, 1, h + 1, r);
-                ctx.arcTo(1, h + 1, 1, 1, r);
-                ctx.arcTo(1, 1, w + 1, 1, r);
-
-                ctx.strokeStyle = "#ffffff";
-                ctx.globalAlpha = 0.25;
-                ctx.lineWidth = 1.2;
-                ctx.setLineDash([4, 4]);
-
-                ctx.stroke();
-                ctx.restore();
-            }
-        }
-
-        // MATCHED LOOP TRAIL & AIRPLANE
-        Canvas {
-            id: planeTrail
-            z: 3
-            x: parent.width * 0.62
-            y: parent.height * 0.24
-            width: parent.width * 0.26
-            height: parent.height * 0.38
-
-            onPaint: {
-                var ctx = getContext("2d");
-                ctx.clearRect(0, 0, width, height);
-
-                ctx.save();
-                ctx.beginPath();
-
-                ctx.moveTo(width * 0.02, height * 0.52);
-                ctx.bezierCurveTo(width * 0.38, height * 1.05, width * 0.58, height * 0.85, width * 0.35, height * 0.65);
-                ctx.bezierCurveTo(width * 0.12, height * 0.45, width * 0.28, height * 0.25, width * 0.88, height * 0.10);
-
-                ctx.strokeStyle = "#ffffff";
-                ctx.globalAlpha = 0.25;
-                ctx.lineWidth = 1.2;
-                ctx.setLineDash([3, 3]);
-
-                ctx.stroke();
-                ctx.restore();
-            }
-        }
-
-        Canvas {
-            id: paperPlane
-            z: 4
-            x: parent.width * 0.82
-            y: parent.height * 0.21
-            width: 17
-            height: 17
-            rotation: 40
-
-            onPaint: {
-                var ctx = getContext("2d");
-                ctx.clearRect(0, 0, width, height);
-
-                ctx.fillStyle = "#6e6e75";
-                ctx.beginPath();
-                ctx.moveTo(0, height * 0.5);
-                ctx.lineTo(width, 0);
-                ctx.lineTo(width * 0.65, height);
-                ctx.lineTo(width * 0.42, height * 0.62);
-                ctx.closePath();
-                ctx.fill();
-
-                ctx.fillStyle = "#4a4a50";
-                ctx.beginPath();
-                ctx.moveTo(width * 0.42, height * 0.62);
-                ctx.lineTo(width, 0);
-                ctx.lineTo(width * 0.65, height);
-                ctx.closePath();
-                ctx.fill();
-            }
-        }
-    }
-
-    // ========================================================
-    // 1-3+ ITEMS: DYNAMIC REAL MEDIA
-    // ========================================================
-    Item {
-        id: dynamicFolderArtifacts
-        visible: folderContents.itemCount > 0
-        width: parent.width
-        height: parent.height
-        y: -5
-
-        // DASHED CARD PLACEHOLDER (LEFT)
-        Canvas {
-            id: dynamicDashedCard
-            z: 1
-            x: parent.width * 0.10
-            y: parent.height * 0.16
-            visible: folderContents.itemCount > 3
-            width: parent.width * 0.24
-            height: width * 1.15
-            rotation: -14
-
-            onPaint: {
-                var ctx = getContext("2d");
-                ctx.clearRect(0, 0, width, height);
-
-                ctx.save();
-                ctx.beginPath();
-                
-                var r = 6;
-                var w = width - 2;
-                var h = height - 2;
-
-                ctx.moveTo(r + 1, 1);
-                ctx.arcTo(w + 1, 1, w + 1, h + 1, r);
-                ctx.arcTo(w + 1, h + 1, 1, h + 1, r);
-                ctx.arcTo(1, h + 1, 1, 1, r);
-                ctx.arcTo(1, 1, w + 1, 1, r);
-
-                ctx.strokeStyle = "#ffffff";
-                ctx.globalAlpha = 0.25;
-                ctx.lineWidth = 1.2;
-                ctx.setLineDash([4, 4]);
-
-                ctx.stroke();
-                ctx.restore();
-            }
-        }
-
-        // THUMBNAIL PALETTE CARDS
-        Repeater {
-            model: Math.min(folderContents.itemCount, 3)
-
-            delegate: Rectangle {
-                id: itemCard
-                z: index + 5
-                
-                readonly property var currentItem: folderContents.folderItems[index]
-                readonly property bool isSubFolder: currentItem && currentItem.isFolder === true
-
-                x: parent.width * (0.30 + (index * 0.16))
-                y: parent.height * (0.14 + (index * 0.04))
-                width: parent.width * 0.23
-                height: width * 1.12
-                radius: 7
-                rotation: index === 0 ? -6 : (index === 1 ? 10 : 2)
-
-                color: index % 2 === 0 ? "#28282b" : "#252528"
-                border.width: 1
-                border.color: index % 2 === 0 ? "#48484c" : "#424246"
-
-                Rectangle {
-                    anchors.fill: parent
-                    anchors.margins: 4
-                    radius: 5
-                    color: "#1e1e20"
-                    clip: true
-
-                    // Standard Media Thumbnail
-                    Image {
-                        anchors.fill: parent
-                        visible: !itemCard.isSubFolder
-                        fillMode: Image.PreserveAspectCrop
-                        asynchronous: true
-                        source: {
-                            if (itemCard.currentItem && itemCard.currentItem.path) {
-                                return "image://thumbnails/" + itemCard.currentItem.path + "?width=" + Math.round(panelRoot.gridCellSize * 1.5);
-                            }
-                            return "";
-                        }
-                    }
-
-                    // IF ELEMENT IS A FOLDER (.isFolder == true) -> RENDER FOLDER SVG
-                    Canvas {
-                        anchors.centerIn: parent
-                        width: 14
-                        height: 12
-                        visible: itemCard.isSubFolder
-
-                        onPaint: {
-                            var ctx = getContext("2d");
-                            ctx.clearRect(0, 0, width, height);
-
-                            ctx.save();
-                            ctx.strokeStyle = "#8a8a90";
-                            ctx.lineWidth = 1.2;
-                            ctx.lineJoin = "round";
-                            ctx.lineCap = "round";
-
-                            var r = 1.5;
-                            var w = width - 1;
-                            var h = height - 1;
-
-                            // Outlined folder path with top tab
-                            ctx.beginPath();
-                            ctx.moveTo(1, 2.5);
-                            ctx.lineTo(4.5, 2.5);
-                            ctx.lineTo(6.5, 4);
-                            ctx.lineTo(w - r, 4);
-                            ctx.arcTo(w, 4, w, 4 + r, r);
-                            ctx.lineTo(w, h - r);
-                            ctx.arcTo(w, h, w - r, h, r);
-                            ctx.lineTo(1 + r, h);
-                            ctx.arcTo(1, h, 1, h - r, r);
-                            ctx.closePath();
-
-                            ctx.stroke();
-                            ctx.restore();
-                        }
-                    }
-                }
-            }
-        }
-
-        // PLUS "+" BADGE FOR >3 ITEMS
-        Rectangle {
-            id: dynamicPlusCard
-            visible: folderContents.itemCount > 3
-            z: 10
-            x: parent.width * 0.74
-            y: parent.height * 0.16
-            width: parent.width * 0.16
-            height: width // * 1.12
-            radius: 7
-            rotation: 16
-
-            color: "#28282b"
-            border.width: 1
-            border.color: "#48484c"
-
-            Rectangle {
-                anchors.fill: parent
-                anchors.margins: 3
-                radius: 5
-                color: "#1e1e20"
-
-                Canvas {
-                    anchors.centerIn: parent
-                    width: 10
-                    height: 10
-
-                    onPaint: {
-                        var ctx = getContext("2d");
-                        ctx.clearRect(0, 0, width, height);
-
-                        ctx.strokeStyle = "#88888d";
-                        ctx.lineWidth = 2;
-                        ctx.lineCap = "round";
-
-                        ctx.beginPath();
-                        ctx.moveTo(width / 2, 0);
-                        ctx.lineTo(width / 2, height);
-                        ctx.moveTo(0, height / 2);
-                        ctx.lineTo(width, height / 2);
-                        ctx.stroke();
-                    }
-                }
-            }
-        }
-    }
-
-    // ========================================================
-    // FOLDER COVER SHAPE
-    // ========================================================
-    Shape {
-        id: folderCover
-        anchors.fill: parent
-        layer.enabled: true
-        layer.samples: 4
-
-        ShapePath {
-            fillColor: "#2c2c2f"
-            strokeColor: "#3a3a3e"
-            strokeWidth: 1
-
-            startX: 0
-            startY: folderContents.folderStartY
-
-            PathLine {
-                x: 0
-                y: folderCover.height - folderContents.folderBottom
-            }
-
-            PathQuad {
-                x: folderContents.folderTabLeft
-                y: folderCover.height
-                controlX: 0
-                controlY: folderCover.height
-            }
-
-            PathLine {
-                x: folderCover.width - folderContents.folderTabLeft
-                y: folderCover.height
-            }
-
-            PathQuad {
-                x: folderCover.width
-                y: folderCover.height - folderContents.folderBottom
-                controlX: folderCover.width
-                controlY: folderCover.height
-            }
-
-            PathLine {
-                x: folderCover.width
-                y: folderContents.folderRightY
-            }
-
-            PathQuad {
-                x: folderCover.width - folderContents.folderRightCurveX
-                y: folderContents.folderRightCurveY
-                controlX: folderCover.width
-                controlY: folderContents.folderRightCurveY
-            }
-
-            PathLine {
-                x: folderCover.width * folderContents.folderTabEnd
-                y: folderContents.folderRightCurveY
-            }
-
-            PathCubic {
-                x: folderCover.width * folderContents.folderTabStart
-                y: folderContents.folderTabY
-
-                control1X: folderCover.width * folderContents.folderCurve1
-                control1Y: folderContents.folderRightCurveY
-
-                control2X: folderCover.width * folderContents.folderCurve2
-                control2Y: folderContents.folderTabY
-            }
-
-            PathLine {
-                x: folderContents.folderTabLeft
-                y: folderContents.folderTabY
-            }
-
-            PathQuad {
-                x: 0
-                y: folderContents.folderStartY
-                controlX: 0
-                controlY: folderContents.folderTabY
-            }
-        }
-    }
-
-    // ========================================================
-    // BOTTOM-RIGHT BADGE PALETTE
-    // ========================================================
-    Rectangle {
-        id: countBadge
-        z: 20
-        visible: folderContents.itemCount > 0
-        anchors.right: parent.right
-        anchors.top: parent.top
-        anchors.margins: 6
-
-        width: 22
-        height: 22
-        radius: 11
-
-        color: "#2c2c2f"
-        // color: "#181818"
-        border.color: "#181818" // "#2c2c2f"
-        border.width: 2
-
-        Text {
-            anchors.centerIn: parent
-
-            text: folderContents.itemCount
-
-            color: "#ffffff"
-            font.pixelSize: 10
-            font.bold: true
-        }
-    }
-}
+                                        Item {
+                                            id: folderContents
+                                            anchors.fill: parent
+                                            visible: model.isFolder
+
+                                            // Helper property to fetch current folder contents dynamically
+                                            readonly property var folderItems: (model.isFolder && model.id !== undefined) ? getFolderContents(model.id, false) : []
+                                            readonly property int itemCount: folderItems.length
+
+                                            // Custom SVG Path for folder items (Update this source string to your local SVG path)
+                                            readonly property string folderSvgSrc: "qrc:/icons/folder.svg"
+
+                                            // ========================================================
+                                            // FOLDER COVER GEOMETRY
+                                            // ========================================================
+                                            property real folderStartY: 46
+                                            property real folderBottom: 8
+                                            property real folderRightY: 58
+                                            property real folderRightCurveX: 6
+                                            property real folderRightCurveY: 52
+                                            property real folderTabEnd: 0.62
+                                            property real folderTabStart: 0.48
+                                            property real folderCurve1: 0.58
+                                            property real folderCurve2: 0.56
+                                            property real folderTabY: 40
+                                            property real folderTabLeft: 8
+
+                                            // ========================================================
+                                            // BUBBLE DOTS (MINIMUM Z-INDEX)
+                                            // ========================================================
+                                            // 1. LARGER BUBBLE DOT (RIGHT)
+                                            Rectangle {
+                                                z: -1
+                                                x: parent.width * 0.82
+                                                y: parent.height * 0.32
+                                                width: 4
+                                                height: 4
+                                                radius: 2
+                                                color: "#444444"
+                                            }
+
+                                            // 2. SMALL ACCENT BUBBLE DOT (CENTER-LEFT)
+                                            Rectangle {
+                                                z: -1
+                                                x: parent.width * 0.14
+                                                y: parent.height * 0.24
+                                                width: 6
+                                                height: 6
+                                                radius: 3
+                                                color: "#3a3a3a"
+                                            }
+
+                                            // ========================================================
+                                            // 0 ITEMS: DEFAULT EMPTY ARTWORK
+                                            // ========================================================
+                                            Item {
+                                                id: emptyFolderArtifact
+                                                visible: folderContents.itemCount === 0
+                                                width: parent.width
+                                                height: parent.height
+                                                y: -5
+
+                                                // PHOTO ITEM CARD
+                                                Rectangle {
+                                                    id: photoCard
+                                                    z: 1
+                                                    x: parent.width * 0.30
+                                                    y: parent.height * 0.14
+                                                    width: parent.width * 0.23
+                                                    height: width * 1.12
+                                                    opacity: 0.3
+                                                    radius: 7
+                                                    rotation: -6
+
+                                                    color: "#28282b"
+                                                    border.width: 1
+                                                    border.color: "#48484c"
+
+                                                    Rectangle {
+                                                        anchors.fill: parent
+                                                        anchors.margins: 4
+                                                        radius: 5
+                                                        color: "#1e1e20"
+
+                                                        Canvas {
+                                                            anchors.fill: parent
+                                                            anchors.margins: 4
+
+                                                            onPaint: {
+                                                                var ctx = getContext("2d");
+                                                                ctx.clearRect(0, 0, width, height);
+
+                                                                ctx.fillStyle = "#6e6e73";
+                                                                ctx.beginPath();
+                                                                ctx.arc(width * 0.65, height * 0.30, 3, 0, 2 * Math.PI);
+                                                                ctx.fill();
+
+                                                                ctx.fillStyle = "#55555a";
+                                                                ctx.beginPath();
+                                                                ctx.moveTo(0, height);
+                                                                ctx.lineTo(width * 0.38, height * 0.45);
+                                                                ctx.lineTo(width * 0.60, height * 0.70);
+                                                                ctx.lineTo(width * 0.80, height * 0.52);
+                                                                ctx.lineTo(width, height);
+                                                                ctx.closePath();
+                                                                ctx.fill();
+                                                            }
+                                                        }
+                                                    }
+                                                }
+
+                                                // VIDEO PALETTE CARD
+                                                Rectangle {
+                                                    id: videoCard
+                                                    z: 2
+                                                    x: parent.width * 0.54
+                                                    y: parent.height * 0.20
+                                                    width: parent.width * 0.21
+                                                    height: width * 1.12
+                                                    opacity: 0.3
+                                                    radius: 7
+                                                    rotation: 10
+
+                                                    color: "#252528"
+                                                    border.width: 1
+                                                    border.color: "#424246"
+
+                                                    Rectangle {
+                                                        anchors.fill: parent
+                                                        anchors.margins: 4
+                                                        radius: 5
+                                                        color: "#1a1a1c"
+
+                                                        Canvas {
+                                                            anchors.centerIn: parent
+                                                            width: 12
+                                                            height: 12
+
+                                                            onPaint: {
+                                                                var ctx = getContext("2d");
+                                                                ctx.clearRect(0, 0, width, height);
+
+                                                                ctx.fillStyle = "#68686d";
+                                                                ctx.beginPath();
+                                                                ctx.moveTo(3, 1);
+                                                                ctx.lineTo(11, 6);
+                                                                ctx.lineTo(3, 11);
+                                                                ctx.closePath();
+                                                                ctx.fill();
+                                                            }
+                                                        }
+                                                    }
+                                                }
+
+                                                // DASHED CARD PLACEHOLDER
+                                                Canvas {
+                                                    id: dashedCard
+                                                    z: 5
+                                                    x: parent.width * 0.10
+                                                    y: parent.height * 0.16
+                                                    width: parent.width * 0.24
+                                                    height: width * 1.15
+                                                    rotation: -14
+
+                                                    onPaint: {
+                                                        var ctx = getContext("2d");
+                                                        ctx.clearRect(0, 0, width, height);
+
+                                                        ctx.save();
+                                                        ctx.beginPath();
+
+                                                        var r = 6;
+                                                        var w = width - 2;
+                                                        var h = height - 2;
+
+                                                        ctx.moveTo(r + 1, 1);
+                                                        ctx.arcTo(w + 1, 1, w + 1, h + 1, r);
+                                                        ctx.arcTo(w + 1, h + 1, 1, h + 1, r);
+                                                        ctx.arcTo(1, h + 1, 1, 1, r);
+                                                        ctx.arcTo(1, 1, w + 1, 1, r);
+
+                                                        ctx.strokeStyle = "#ffffff";
+                                                        ctx.globalAlpha = 0.25;
+                                                        ctx.lineWidth = 1.2;
+                                                        ctx.setLineDash([4, 4]);
+
+                                                        ctx.stroke();
+                                                        ctx.restore();
+                                                    }
+                                                }
+
+                                                // MATCHED LOOP TRAIL & AIRPLANE
+                                                Canvas {
+                                                    id: planeTrail
+                                                    z: 3
+                                                    x: parent.width * 0.62
+                                                    y: parent.height * 0.24
+                                                    width: parent.width * 0.26
+                                                    height: parent.height * 0.38
+
+                                                    onPaint: {
+                                                        var ctx = getContext("2d");
+                                                        ctx.clearRect(0, 0, width, height);
+
+                                                        ctx.save();
+                                                        ctx.beginPath();
+
+                                                        ctx.moveTo(width * 0.02, height * 0.52);
+                                                        ctx.bezierCurveTo(width * 0.38, height * 1.05, width * 0.58, height * 0.85, width * 0.35, height * 0.65);
+                                                        ctx.bezierCurveTo(width * 0.12, height * 0.45, width * 0.28, height * 0.25, width * 0.88, height * 0.10);
+
+                                                        ctx.strokeStyle = "#ffffff";
+                                                        ctx.globalAlpha = 0.25;
+                                                        ctx.lineWidth = 1.2;
+                                                        ctx.setLineDash([3, 3]);
+
+                                                        ctx.stroke();
+                                                        ctx.restore();
+                                                    }
+                                                }
+
+                                                Canvas {
+                                                    id: paperPlane
+                                                    z: 4
+                                                    x: parent.width * 0.82
+                                                    y: parent.height * 0.21
+                                                    width: 17
+                                                    height: 17
+                                                    rotation: 40
+
+                                                    onPaint: {
+                                                        var ctx = getContext("2d");
+                                                        ctx.clearRect(0, 0, width, height);
+
+                                                        ctx.fillStyle = "#6e6e75";
+                                                        ctx.beginPath();
+                                                        ctx.moveTo(0, height * 0.5);
+                                                        ctx.lineTo(width, 0);
+                                                        ctx.lineTo(width * 0.65, height);
+                                                        ctx.lineTo(width * 0.42, height * 0.62);
+                                                        ctx.closePath();
+                                                        ctx.fill();
+
+                                                        ctx.fillStyle = "#4a4a50";
+                                                        ctx.beginPath();
+                                                        ctx.moveTo(width * 0.42, height * 0.62);
+                                                        ctx.lineTo(width, 0);
+                                                        ctx.lineTo(width * 0.65, height);
+                                                        ctx.closePath();
+                                                        ctx.fill();
+                                                    }
+                                                }
+                                            }
+
+                                            // ========================================================
+                                            // 1-3+ ITEMS: DYNAMIC REAL MEDIA
+                                            // ========================================================
+                                            Item {
+                                                id: dynamicFolderArtifacts
+                                                visible: folderContents.itemCount > 0
+                                                width: parent.width
+                                                height: parent.height
+                                                y: -5
+
+                                                // DASHED CARD PLACEHOLDER (LEFT)
+                                                Canvas {
+                                                    id: dynamicDashedCard
+                                                    z: 1
+                                                    x: parent.width * 0.10
+                                                    y: parent.height * 0.16
+                                                    visible: folderContents.itemCount > 3
+                                                    width: parent.width * 0.24
+                                                    height: width * 1.15
+                                                    rotation: -14
+
+                                                    onPaint: {
+                                                        var ctx = getContext("2d");
+                                                        ctx.clearRect(0, 0, width, height);
+
+                                                        ctx.save();
+                                                        ctx.beginPath();
+
+                                                        var r = 6;
+                                                        var w = width - 2;
+                                                        var h = height - 2;
+
+                                                        ctx.moveTo(r + 1, 1);
+                                                        ctx.arcTo(w + 1, 1, w + 1, h + 1, r);
+                                                        ctx.arcTo(w + 1, h + 1, 1, h + 1, r);
+                                                        ctx.arcTo(1, h + 1, 1, 1, r);
+                                                        ctx.arcTo(1, 1, w + 1, 1, r);
+
+                                                        ctx.strokeStyle = "#ffffff";
+                                                        ctx.globalAlpha = 0.25;
+                                                        ctx.lineWidth = 1.2;
+                                                        ctx.setLineDash([4, 4]);
+
+                                                        ctx.stroke();
+                                                        ctx.restore();
+                                                    }
+                                                }
+
+                                                // THUMBNAIL PALETTE CARDS
+                                                Repeater {
+                                                    model: Math.min(folderContents.itemCount, 3)
+
+                                                    delegate: Rectangle {
+                                                        id: itemCard
+                                                        z: index + 5
+
+                                                        readonly property var currentItem: folderContents.folderItems[index]
+                                                        readonly property bool isSubFolder: currentItem && currentItem.isFolder === true
+
+                                                        x: parent.width * (0.30 + (index * 0.16))
+                                                        y: parent.height * (0.14 + (index * 0.04))
+                                                        width: parent.width * 0.23
+                                                        height: width * 1.12
+                                                        radius: 7
+                                                        rotation: index === 0 ? -6 : (index === 1 ? 10 : 2)
+
+                                                        color: index % 2 === 0 ? "#28282b" : "#252528"
+                                                        border.width: 1
+                                                        border.color: index % 2 === 0 ? "#48484c" : "#424246"
+
+                                                        Rectangle {
+                                                            anchors.fill: parent
+                                                            anchors.margins: 4
+                                                            radius: 5
+                                                            color: "#1e1e20"
+                                                            clip: true
+
+                                                            // Standard Media Thumbnail
+                                                            Image {
+                                                                anchors.fill: parent
+                                                                visible: !itemCard.isSubFolder
+                                                                fillMode: Image.PreserveAspectCrop
+                                                                asynchronous: true
+                                                                source: {
+                                                                    if (itemCard.currentItem && itemCard.currentItem.path) {
+                                                                        return "image://thumbnails/" + itemCard.currentItem.path + "?width=" + Math.round(panelRoot.gridCellSize * 1.5);
+                                                                    }
+                                                                    return "";
+                                                                }
+                                                            }
+
+                                                            // IF ELEMENT IS A FOLDER (.isFolder == true) -> RENDER FOLDER SVG
+                                                            Canvas {
+                                                                anchors.centerIn: parent
+                                                                width: 14
+                                                                height: 12
+                                                                visible: itemCard.isSubFolder
+
+                                                                onPaint: {
+                                                                    var ctx = getContext("2d");
+                                                                    ctx.clearRect(0, 0, width, height);
+
+                                                                    ctx.save();
+                                                                    ctx.strokeStyle = "#8a8a90";
+                                                                    ctx.lineWidth = 1.2;
+                                                                    ctx.lineJoin = "round";
+                                                                    ctx.lineCap = "round";
+
+                                                                    var r = 1.5;
+                                                                    var w = width - 1;
+                                                                    var h = height - 1;
+
+                                                                    // Outlined folder path with top tab
+                                                                    ctx.beginPath();
+                                                                    ctx.moveTo(1, 2.5);
+                                                                    ctx.lineTo(4.5, 2.5);
+                                                                    ctx.lineTo(6.5, 4);
+                                                                    ctx.lineTo(w - r, 4);
+                                                                    ctx.arcTo(w, 4, w, 4 + r, r);
+                                                                    ctx.lineTo(w, h - r);
+                                                                    ctx.arcTo(w, h, w - r, h, r);
+                                                                    ctx.lineTo(1 + r, h);
+                                                                    ctx.arcTo(1, h, 1, h - r, r);
+                                                                    ctx.closePath();
+
+                                                                    ctx.stroke();
+                                                                    ctx.restore();
+                                                                }
+                                                            }
+                                                        }
+                                                    }
+                                                }
+
+                                                // PLUS "+" BADGE FOR >3 ITEMS
+                                                Rectangle {
+                                                    id: dynamicPlusCard
+                                                    visible: folderContents.itemCount > 3
+                                                    z: 10
+                                                    x: parent.width * 0.74
+                                                    y: parent.height * 0.16
+                                                    width: parent.width * 0.16
+                                                    height: width // * 1.12
+                                                    radius: 7
+                                                    rotation: 16
+
+                                                    color: "#28282b"
+                                                    border.width: 1
+                                                    border.color: "#48484c"
+
+                                                    Rectangle {
+                                                        anchors.fill: parent
+                                                        anchors.margins: 3
+                                                        radius: 5
+                                                        color: "#1e1e20"
+
+                                                        Canvas {
+                                                            anchors.centerIn: parent
+                                                            width: 10
+                                                            height: 10
+
+                                                            onPaint: {
+                                                                var ctx = getContext("2d");
+                                                                ctx.clearRect(0, 0, width, height);
+
+                                                                ctx.strokeStyle = "#88888d";
+                                                                ctx.lineWidth = 2;
+                                                                ctx.lineCap = "round";
+
+                                                                ctx.beginPath();
+                                                                ctx.moveTo(width / 2, 0);
+                                                                ctx.lineTo(width / 2, height);
+                                                                ctx.moveTo(0, height / 2);
+                                                                ctx.lineTo(width, height / 2);
+                                                                ctx.stroke();
+                                                            }
+                                                        }
+                                                    }
+                                                }
+                                            }
+
+                                            // ========================================================
+                                            // FOLDER COVER SHAPE
+                                            // ========================================================
+                                            Shape {
+                                                id: folderCover
+                                                anchors.fill: parent
+                                                layer.enabled: true
+                                                layer.samples: 4
+
+                                                ShapePath {
+                                                    fillColor: "#2c2c2f"
+                                                    strokeColor: "#3a3a3e"
+                                                    strokeWidth: 1
+
+                                                    startX: 0
+                                                    startY: folderContents.folderStartY
+
+                                                    PathLine {
+                                                        x: 0
+                                                        y: folderCover.height - folderContents.folderBottom
+                                                    }
+
+                                                    PathQuad {
+                                                        x: folderContents.folderTabLeft
+                                                        y: folderCover.height
+                                                        controlX: 0
+                                                        controlY: folderCover.height
+                                                    }
+
+                                                    PathLine {
+                                                        x: folderCover.width - folderContents.folderTabLeft
+                                                        y: folderCover.height
+                                                    }
+
+                                                    PathQuad {
+                                                        x: folderCover.width
+                                                        y: folderCover.height - folderContents.folderBottom
+                                                        controlX: folderCover.width
+                                                        controlY: folderCover.height
+                                                    }
+
+                                                    PathLine {
+                                                        x: folderCover.width
+                                                        y: folderContents.folderRightY
+                                                    }
+
+                                                    PathQuad {
+                                                        x: folderCover.width - folderContents.folderRightCurveX
+                                                        y: folderContents.folderRightCurveY
+                                                        controlX: folderCover.width
+                                                        controlY: folderContents.folderRightCurveY
+                                                    }
+
+                                                    PathLine {
+                                                        x: folderCover.width * folderContents.folderTabEnd
+                                                        y: folderContents.folderRightCurveY
+                                                    }
+
+                                                    PathCubic {
+                                                        x: folderCover.width * folderContents.folderTabStart
+                                                        y: folderContents.folderTabY
+
+                                                        control1X: folderCover.width * folderContents.folderCurve1
+                                                        control1Y: folderContents.folderRightCurveY
+
+                                                        control2X: folderCover.width * folderContents.folderCurve2
+                                                        control2Y: folderContents.folderTabY
+                                                    }
+
+                                                    PathLine {
+                                                        x: folderContents.folderTabLeft
+                                                        y: folderContents.folderTabY
+                                                    }
+
+                                                    PathQuad {
+                                                        x: 0
+                                                        y: folderContents.folderStartY
+                                                        controlX: 0
+                                                        controlY: folderContents.folderTabY
+                                                    }
+                                                }
+                                            }
+
+                                            // ========================================================
+                                            // BOTTOM-RIGHT BADGE PALETTE
+                                            // ========================================================
+                                            Rectangle {
+                                                id: countBadge
+                                                z: 20
+                                                visible: folderContents.itemCount > 0
+                                                anchors.right: parent.right
+                                                anchors.top: parent.top
+                                                anchors.margins: 6
+
+                                                width: 22
+                                                height: 22
+                                                radius: 11
+
+                                                color: "#2c2c2f"
+                                                // color: "#181818"
+                                                border.color: "#181818" // "#2c2c2f"
+                                                border.width: 2
+
+                                                Text {
+                                                    anchors.centerIn: parent
+
+                                                    text: folderContents.itemCount
+
+                                                    color: "#ffffff"
+                                                    font.pixelSize: 10
+                                                    font.bold: true
+                                                }
+                                            }
+                                        }
 
                                         RowLayout {
                                             id: badgeRow
@@ -4061,7 +4064,7 @@ Item {
                                                     source: "qrc:/assets/icons/audio.svg" // your audio icon
                                                 }
                                             }
-                                          // }
+                                            // }
                                         }
                                         // Rectangle {
                                         //     anchors.right: parent.right
@@ -4251,70 +4254,62 @@ Item {
                                     // }
                                 }
 
+                                // FIX: Pill visibility
+                                // Top-right tag pill
+                                Rectangle {
+                                    id: tagBadge
 
+                                    width: 20 // Increased from 5 so the SVG icon has room to render
+                                    height: 20
 
+                                    anchors.top: parent.top
+                                    anchors.right: parent.right
+                                    anchors.topMargin: 8
+                                    anchors.rightMargin: 9.5 // -6
 
+                                    // topLeftRadius: 4
+                                    // bottomLeftRadius: 4
+                                    // topRightRadius: 0
+                                    // bottomRightRadius: 0
 
-                                                    // FIX: Pill visibility
-                                                    // Top-right tag pill
-                                                    Rectangle {
-                                                        id: tagBadge
+                                    color: "transparent" // Background transparent so only the icon shows color
+                                    z: 10
 
-                                                        width: 20 // Increased from 5 so the SVG icon has room to render
-                                                        height: 20
+                                    visible: Boolean(model.tag && model.tag > 0)
 
-                                                        anchors.top: parent.top
-                                                        anchors.right: parent.right
-                                                        anchors.topMargin: 8
-                                                        anchors.rightMargin: 9.5 // -6
+                                    Image {
+                                        id: badgeIcon
+                                        anchors.fill: parent
+                                        source: "qrc:/assets/icons/tag-filled.svg" // Replace with your SVG path
 
-                                                        // topLeftRadius: 4
-                                                        // bottomLeftRadius: 4
-                                                        // topRightRadius: 0
-                                                        // bottomRightRadius: 0
+                                        // This ensures the crisp rendering of vector SVGs at runtime scale
+                                        sourceSize: Qt.size(parent.width, parent.height)
+                                        smooth: true
 
-                                                        color: "transparent" // Background transparent so only the icon shows color
-                                                        z: 10
+                                        // Use MultiEffect to cleanly tint the SVG solid path
+                                        layer.enabled: true
+                                        layer.effect: MultiEffect {
+                                            colorization: 1.0 // 1.0 means fully tinted by the color below
 
-                                                        visible: Boolean(model.tag && model.tag > 0)
+                                            colorizationColor: model.tagColor // || "transparent"
 
-                                                        Image {
-                                                            id: badgeIcon
-                                                            anchors.fill: parent
-                                                            source: "qrc:/assets/icons/tag-filled.svg" // Replace with your SVG path
-                                                            
-                                                            // This ensures the crisp rendering of vector SVGs at runtime scale
-                                                            sourceSize: Qt.size(parent.width, parent.height) 
-                                                            smooth: true
+                                            // 2. Enable and configure the path-perfect drop shadow here
+                                            shadowEnabled: true
+                                            shadowColor: "#80000000"       // Semi-transparent black (change to your liking)
+                                            shadowBlur: 0.3                // Softness of the shadow (0.0 to 1.0 range)
+                                            shadowHorizontalOffset: 0      // X-offset
+                                            shadowVerticalOffset: 2        // Y-offset (pushes shadow down)
 
-                                                            // Use MultiEffect to cleanly tint the SVG solid path
-                                                            layer.enabled: true
-                                                            layer.effect: MultiEffect {
-                                                                colorization: 1.0 // 1.0 means fully tinted by the color below
-
-                                                                colorizationColor: model.tagColor // || "transparent"
-
-                                                                // 2. Enable and configure the path-perfect drop shadow here
-                                                                shadowEnabled: true
-                                                                shadowColor: "#80000000"       // Semi-transparent black (change to your liking)
-                                                                shadowBlur: 0.3                // Softness of the shadow (0.0 to 1.0 range)
-                                                                shadowHorizontalOffset: 0      // X-offset
-                                                                shadowVerticalOffset: 2        // Y-offset (pushes shadow down)
-
-                                                                // Animates the SVG color changes smoothly
-                                                                Behavior on colorizationColor {
-                                                                    ColorAnimation {
-                                                                        duration: 950
-                                                                        easing.type: Easing.InOutQuad
-                                                                    }
-                                                                }
-                                                            }
-                                                        }
-                                                    }
-
-
-
-                                
+                                            // Animates the SVG color changes smoothly
+                                            Behavior on colorizationColor {
+                                                ColorAnimation {
+                                                    duration: 950
+                                                    easing.type: Easing.InOutQuad
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
                             }
 
                             MouseArea {

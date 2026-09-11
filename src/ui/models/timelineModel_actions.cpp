@@ -1,3 +1,4 @@
+#include "core/log/logger.hpp"
 #include "ui/models/timelineModel.hpp"
 
 namespace xyla {
@@ -110,6 +111,41 @@ void TimelineModel::registerActions(xyla::XylaActionManager *actionMgr,
        true,
        [this]() { emit deleteSelectedKeyframesRequested(); }});
 
+  // TODO: finish this
+  actionMgr->registerAction({"timeline.copy",
+                             {"Copy", "Copy selected clips",
+                              "Copies selected clips to clipboard", ""},
+                             "qrc:/assets/icons/copy.svg",
+                             true,
+                             [this]() {
+                               XYLA_LOG_DEBUG("timeline action",
+                                              "timeline copy triggered");
+                             }});
+
+  actionMgr->registerAction(
+      {"timeline.paste",
+       {"Paste", "Paste clips", "Pastes clips at playhead", ""},
+       "qrc:/assets/icons/clipboard.svg",
+       true,
+       [this]() { /* stub for now */ }});
+
+  actionMgr->registerAction(
+      {"dopesheet.copy",
+       {"Copy", "Copy selected keyframes",
+        "Copies selected keyframes to the animation clipboard",
+        "https://docs.xyla.dev/animation/dopesheet#copy"},
+       "qrc:/assets/icons/copy.svg",
+       true,
+       [this]() { emit copyKeyframesRequested(); }});
+
+  actionMgr->registerAction(
+      {"dopesheet.paste",
+       {"Paste", "Paste keyframes",
+        "Pastes keyframes at current playhead frame",
+        "https://docs.xyla.dev/animation/dopesheet#paste"},
+       "qrc:/assets/icons/clipboard.svg",
+       true,
+       [this]() { emit pasteKeyframesRequested(); }});
   // Link Clips
   actionMgr->registerAction(
       {"timeline.linkClips",

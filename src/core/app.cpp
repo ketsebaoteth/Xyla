@@ -1,5 +1,6 @@
 #include "app.hpp"
 #include "core/actions/xylaActionManager.hpp"
+#include "core/animation/keyframeContextMenuController.hpp"
 #include "core/audio/audioEngine.hpp"
 #include "core/audio/hal/pipewireAudioBackend.hpp"
 #include "core/audio/timeline/audioTimelineManager.hpp"
@@ -26,7 +27,6 @@
 #include "ui/models/timelineModel.hpp"
 #include "ui/workspaceLayoutController.hpp"
 #include "workspace/xylaViewFactory.hpp"
-#include "log/logger.hpp"
 
 #include <QGuiApplication>
 #include <QQmlApplicationEngine>
@@ -172,7 +172,6 @@ ErrorCode App::initCoreSubsystems() {
                      });
 
     m_fileSystemModel = std::make_unique<FileSystemModel>();
-
     m_shortcutManager = std::make_unique<ShortcutManager>();
     m_layoutController = std::make_unique<WorkspaceLayoutController>();
     m_actionManager = std::make_unique<XylaActionManager>(
@@ -224,6 +223,8 @@ ErrorCode App::initCoreSubsystems() {
 
 ErrorCode App::setupUIEngine() {
   try {
+    qmlRegisterType<xyla::anim::KeyframeContextMenuController>(
+        "Xyla.Animation", 1, 0, "KeyframeContextMenuController");
     qmlRegisterType<XylaVideoSurface>("Xyla.Render", 1, 0, "XylaVideoSurface");
 
     qmlRegisterUncreatableType<RecentProjectsModel>(
@@ -260,10 +261,12 @@ ErrorCode App::setupUIEngine() {
 #if defined(QT_DEBUG)
 #if defined(PROJECT_SOURCE_DIR)
     QString qmlDir = QStringLiteral(PROJECT_SOURCE_DIR "/src/qml");
-    // qDebug().noquote() << "[App] QT_DEBUG defined, PROJECT_SOURCE_DIR defined, qmlDir =" << qmlDir;
+    // qDebug().noquote() << "[App] QT_DEBUG defined, PROJECT_SOURCE_DIR
+    // defined, qmlDir =" << qmlDir;
 #else
     QString qmlDir = QStringLiteral("./src/qml");
-    // qDebug().noquote() << "[App] QT_DEBUG defined, PROJECT_SOURCE_DIR NOT defined, falling back to relative path. cwd =" << QDir::currentPath();
+    // qDebug().noquote() << "[App] QT_DEBUG defined, PROJECT_SOURCE_DIR NOT
+    // defined, falling back to relative path. cwd =" << QDir::currentPath();
 #endif
     // NOTE: for the hot reloader to see edits at all, the engine must be
     // loading QML from this real filesystem path in debug builds, not
@@ -271,16 +274,18 @@ ErrorCode App::setupUIEngine() {
     // qrc:/ in debug, edits on disk never affect what's running — set
     // rootUrl to QUrl::fromLocalFile(qmlDir + "/main.qml") instead in
     // that build config.
-    m_hotReloader = std::make_unique<QmlHotReloader>(
-        m_qmlEngine.get(), rootUrl, qmlDir);
+    m_hotReloader =
+        std::make_unique<QmlHotReloader>(m_qmlEngine.get(), rootUrl, qmlDir);
 
     rootContext->setContextProperty("hotReloader", m_hotReloader.get());
     rootContext->setContextProperty("isDevMode", true);
     rootContext->setContextProperty("qmlSourceDir", qmlDir);
     // XYLA_LOG_INFO("Boot",
-    //               "QML Hot Reloading initialized for: " + qmlDir.toStdString());
+    //               "QML Hot Reloading initialized for: " +
+    //               qmlDir.toStdString());
 #else
-    // qDebug().noquote() << "[App] QT_DEBUG is NOT defined — hot reload disabled entirely for this build.";
+    // qDebug().noquote() << "[App] QT_DEBUG is NOT defined — hot reload
+    // disabled entirely for this build.";
     rootContext->setContextProperty("hotReloader", QVariant());
     rootContext->setContextProperty("isDevMode", false);
     rootContext->setContextProperty("qmlSourceDir",
@@ -295,11 +300,13 @@ ErrorCode App::setupUIEngine() {
     rootContext->setContextProperty("shortcutManager", m_shortcutManager.get());
     rootContext->setContextProperty("actionManager", m_actionManager.get());
     rootContext->setContextProperty("menuManager", m_menuManager.get());
-    rootContext->setContextProperty("layoutController", m_layoutController.get());
+    rootContext->setContextProperty("layoutController",
+                                    m_layoutController.get());
     rootContext->setContextProperty("profileManager", m_profileManager.get());
     rootContext->setContextProperty("playbackManager", m_playbackManager.get());
     rootContext->setContextProperty("timelineModel", m_timelineModel.get());
-    rootContext->setContextProperty("timelineCompositor", m_timelineCompositor.get());
+    rootContext->setContextProperty("timelineCompositor",
+                                    m_timelineCompositor.get());
     rootContext->setContextProperty("mixerModel", m_mixerModel.get());
 
   } catch (...) {
@@ -343,7 +350,8 @@ void App::startBackgroundServices() noexcept {
 }
 
 int App::run() {
-  if (!m_initialized) return -1;
+  if (!m_initialized)
+    return -1;
   startBackgroundServices();
   m_qmlEngine->load(m_rootQmlUrl);
   return m_qtApp->exec();

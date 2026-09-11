@@ -6,6 +6,7 @@
 #include <QStandardPaths>
 #include <QTimer>
 
+#include "core/log/logger.hpp"
 #include <kddockwidgets/Config.h>
 #include <kddockwidgets/KDDockWidgets.h>
 #include <kddockwidgets/LayoutSaver.h>
@@ -29,7 +30,8 @@ KDDockWidgets::Core::MainWindowViewInterface *
 findDockingArea(const QString &profileName) {
   auto *registry = KDDockWidgets::DockRegistry::self();
   if (!registry) {
-    // qWarning() << "[Workspace][findDockingArea] DockRegistry::self() returned "
+    // qWarning() << "[Workspace][findDockingArea] DockRegistry::self() returned
+    // "
     //               "NULL for profile:"
     //            << profileName;
     return nullptr;
@@ -38,13 +40,15 @@ findDockingArea(const QString &profileName) {
   const QString wantedName = QStringLiteral("MainLayout-%1").arg(profileName);
   const auto areas = registry->mainDockingAreas();
 
-  // qDebug() << "[Workspace][findDockingArea] Searching for area:" << wantedName
+  // qDebug() << "[Workspace][findDockingArea] Searching for area:" <<
+  // wantedName
   //          << "among" << areas.size() << "registered areas.";
   //
   for (auto *area : areas) {
     if (!area) {
       // qWarning()
-      //     << "[Workspace][findDockingArea] Found NULL area in registry list!";
+      //     << "[Workspace][findDockingArea] Found NULL area in registry
+      //     list!";
       continue;
     }
 
@@ -58,15 +62,16 @@ findDockingArea(const QString &profileName) {
   }
 
   // qWarning()
-      // << "[Workspace][findDockingArea] FAILED to find docking area for profile:"
-      // << profileName << "(wanted:" << wantedName << ")";
+  // << "[Workspace][findDockingArea] FAILED to find docking area for profile:"
+  // << profileName << "(wanted:" << wantedName << ")";
   return nullptr;
 }
 
 KDDockWidgets::Vector<QString> affinityFor(const QString &profileName) {
   KDDockWidgets::Vector<QString> result;
   result.push_back(profileName);
-  // qDebug() << "[Workspace][affinityFor] Generated affinity vector for profile:"
+  // qDebug() << "[Workspace][affinityFor] Generated affinity vector for
+  // profile:"
   //          << profileName;
   return result;
 }
@@ -74,7 +79,8 @@ KDDockWidgets::Vector<QString> affinityFor(const QString &profileName) {
 } // namespace
 
 void WorkspaceLayoutController::initializeWorkspaces() {
-  // qInfo() << "[Workspace][initializeWorkspaces] Starting initialization of all "
+  // qInfo() << "[Workspace][initializeWorkspaces] Starting initialization of
+  // all "
   //            "workspaces...";
   auto *registry = KDDockWidgets::DockRegistry::self();
 
@@ -86,11 +92,13 @@ void WorkspaceLayoutController::initializeWorkspaces() {
 
   for (const QString &profile : kWorkspaces) {
     // qInfo()
-    //     << "[Workspace][initializeWorkspaces] Initializing workspace profile:"
+    //     << "[Workspace][initializeWorkspaces] Initializing workspace
+    //     profile:"
     //     << profile;
     createWorkspace(profile);
   }
-  // qInfo() << "[Workspace][initializeWorkspaces] All workspace initializations "
+  // qInfo() << "[Workspace][initializeWorkspaces] All workspace initializations
+  // "
   //            "triggered.";
 }
 
@@ -105,7 +113,8 @@ bool WorkspaceLayoutController::workspaceExists(
 void WorkspaceLayoutController::createWorkspace(const QString &profileName) {
   // qInfo()
   //     << "=================================================================";
-  // qInfo() << "[Workspace][createWorkspace] BEGIN createWorkspace for profile:"
+  // qInfo() << "[Workspace][createWorkspace] BEGIN createWorkspace for
+  // profile:"
   //         << profileName;
 
   auto *registry = KDDockWidgets::DockRegistry::self();
@@ -117,7 +126,8 @@ void WorkspaceLayoutController::createWorkspace(const QString &profileName) {
 
   auto *mainArea = findDockingArea(profileName);
   if (!mainArea) {
-    // qWarning() << "[Workspace][createWorkspace] ABORT: MainWindowViewInterface "
+    // qWarning() << "[Workspace][createWorkspace] ABORT:
+    // MainWindowViewInterface "
     //               "docking area not found for:"
     //            << profileName;
     return;
@@ -133,7 +143,8 @@ void WorkspaceLayoutController::createWorkspace(const QString &profileName) {
     if (!dock)
       continue;
     if (dock->uniqueName().startsWith(prefix)) {
-      // qWarning() << "[Workspace][createWorkspace] Docks with prefix" << prefix
+      // qWarning() << "[Workspace][createWorkspace] Docks with prefix" <<
+      // prefix
       //            << "already exist! Skipping duplicate creation.";
       return;
     }
@@ -146,7 +157,8 @@ void WorkspaceLayoutController::createWorkspace(const QString &profileName) {
     //          << "| Title:" << title << "| QML URL:" << qmlUrl;
 
     auto *dw = new KDDockWidgets::QtQuick::DockWidget(uniqueId);
-    // qDebug() << "[Workspace][makeDock] Created DockWidget instance at:" << dw;
+    // qDebug() << "[Workspace][makeDock] Created DockWidget instance at:" <<
+    // dw;
 
     dw->setAffinities(affinity);
     dw->setTitle(title);
@@ -161,7 +173,8 @@ void WorkspaceLayoutController::createWorkspace(const QString &profileName) {
   };
 
   if (profileName == QLatin1String("Edit")) {
-    // qInfo() << "[Workspace][createWorkspace] Building 'Edit' profile layout...";
+    // qInfo() << "[Workspace][createWorkspace] Building 'Edit' profile
+    // layout...";
 
     auto *mediaDock =
         makeDock(QStringLiteral("MediaPanel"), QStringLiteral("Media Panel"),
@@ -188,7 +201,8 @@ void WorkspaceLayoutController::createWorkspace(const QString &profileName) {
         makeDock(QStringLiteral("MixerPanel"), QStringLiteral("Audio Mixer"),
                  QStringLiteral("qrc:/Xyla/src/qml/workspace/MixerPanel.qml"));
 
-    // qDebug() << "[Workspace][createWorkspace][Edit] Adding Top Section Docks "
+    // qDebug() << "[Workspace][createWorkspace][Edit] Adding Top Section Docks
+    // "
     //             "to mainArea...";
     mainArea->addDockWidget(mediaDock, KDDockWidgets::Location_OnLeft);
     // qDebug() << "[Workspace][createWorkspace][Edit] Added mediaDock "
@@ -218,7 +232,8 @@ void WorkspaceLayoutController::createWorkspace(const QString &profileName) {
     QTimer::singleShot(
         0, timelineDock,
         [timelineDock, nodeGraphDock, mixerDock, dopesheetDock]() {
-          // qInfo() << "[Workspace][SingleShot Callback] Starting tabification "
+          // qInfo() << "[Workspace][SingleShot Callback] Starting tabification
+          // "
           //            "into timelineDock...";
 
           if (!timelineDock) {
@@ -229,33 +244,39 @@ void WorkspaceLayoutController::createWorkspace(const QString &profileName) {
           if (!nodeGraphDock)
             // qCritical()
             //     << "[Workspace][SingleShot Callback] nodeGraphDock is NULL!";
-          if (!mixerDock)
-            // qCritical()
-            //     << "[Workspace][SingleShot Callback] mixerDock is NULL!";
-          if (!dopesheetDock)
-            // qCritical()
-            //     << "[Workspace][SingleShot Callback] dopesheetDock is NULL!";
+            if (!mixerDock)
+              // qCritical()
+              //     << "[Workspace][SingleShot Callback] mixerDock is NULL!";
+              if (!dopesheetDock)
+                // qCritical()
+                //     << "[Workspace][SingleShot Callback] dopesheetDock is
+                //     NULL!";
 
-          if (nodeGraphDock) {
-            // qDebug() << "[Workspace][SingleShot Callback] Adding nodeGraphDock "
-            //             "as tab...";
-            timelineDock->addDockWidgetAsTab(nodeGraphDock);
-          }
+                if (nodeGraphDock) {
+                  // qDebug() << "[Workspace][SingleShot Callback] Adding
+                  // nodeGraphDock "
+                  //             "as tab...";
+                  timelineDock->addDockWidgetAsTab(nodeGraphDock);
+                }
           if (mixerDock) {
-            // qDebug() << "[Workspace][SingleShot Callback] Adding mixerDock as "
+            // qDebug() << "[Workspace][SingleShot Callback] Adding mixerDock as
+            // "
             //             "tab...";
             timelineDock->addDockWidgetAsTab(mixerDock);
           }
           if (dopesheetDock) {
-            // qDebug() << "[Workspace][SingleShot Callback] Adding dopesheetDock "
+            // qDebug() << "[Workspace][SingleShot Callback] Adding
+            // dopesheetDock "
             //             "as tab...";
             timelineDock->addDockWidgetAsTab(dopesheetDock);
           }
-          // qInfo() << "[Workspace][SingleShot Callback] Tabification completed "
+          // qInfo() << "[Workspace][SingleShot Callback] Tabification completed
+          // "
           //            "successfully.";
         });
   } else if (profileName == QLatin1String("Cut")) {
-    // qInfo() << "[Workspace][createWorkspace] Building 'Cut' profile layout...";
+    // qInfo() << "[Workspace][createWorkspace] Building 'Cut' profile
+    // layout...";
     auto *monitorDock = makeDock(
         QStringLiteral("ProjectMonitor"), QStringLiteral("Project Monitor"),
         QStringLiteral("qrc:/Xyla/src/qml/workspace/ProjectMonitor.qml"));
@@ -296,7 +317,8 @@ void WorkspaceLayoutController::createWorkspace(const QString &profileName) {
     mainArea->addDockWidget(mixerDock, KDDockWidgets::Location_OnBottom,
                             monitorDock);
   } else if (profileName == QLatin1String("View")) {
-    // qInfo() << "[Workspace][createWorkspace] Building 'View' profile layout...";
+    // qInfo() << "[Workspace][createWorkspace] Building 'View' profile
+    // layout...";
     auto *monitorDock = makeDock(
         QStringLiteral("ProjectMonitor"), QStringLiteral("Project Monitor"),
         QStringLiteral("qrc:/Xyla/src/qml/workspace/ProjectMonitor.qml"));
@@ -336,7 +358,8 @@ void WorkspaceLayoutController::restoreOrCreate(const QString &profileName) {
   // qInfo() << "[Workspace][restoreOrCreate] Request received for profile:"
   //         << profileName;
   if (profileName.isEmpty()) {
-    // qWarning() << "[Workspace][restoreOrCreate] Aborted: profileName is empty.";
+    // qWarning() << "[Workspace][restoreOrCreate] Aborted: profileName is
+    // empty.";
     return;
   }
 
@@ -346,7 +369,7 @@ void WorkspaceLayoutController::restoreOrCreate(const QString &profileName) {
       QStringLiteral("%1_layout.json").arg(profileName));
 
   // qDebug() << "[Workspace][restoreOrCreate] Checking existence of file:"
-           // << fileName;
+  // << fileName;
   if (QFileInfo::exists(fileName)) {
     // qInfo() << "[Workspace][restoreOrCreate] Saved layout file found. "
     //            "Restoring from:"
@@ -359,10 +382,12 @@ void WorkspaceLayoutController::restoreOrCreate(const QString &profileName) {
     //         << restored;
     if (restored)
       return;
-    // qWarning() << "[Workspace][restoreOrCreate] Restore failed, falling back "
+    // qWarning() << "[Workspace][restoreOrCreate] Restore failed, falling back
+    // "
     //               "to createWorkspace().";
   } else {
-    // qInfo() << "[Workspace][restoreOrCreate] No saved layout found. Creating "
+    // qInfo() << "[Workspace][restoreOrCreate] No saved layout found. Creating
+    // "
     //            "default workspace...";
   }
 
@@ -438,36 +463,12 @@ void WorkspaceLayoutController::closeCurrentTab(QObject *groupCpp) {
 }
 
 QString WorkspaceLayoutController::activeDockId() const {
-  auto *registry = KDDockWidgets::DockRegistry::self();
-  if (!registry)
-    return m_activeDockId;
-
-  if (auto *focused = registry->focusedDockWidget()) {
-    QString name = focused->uniqueName();
-    int dotIdx = name.indexOf('.');
-    return dotIdx != -1 ? name.mid(dotIdx + 1) : name;
-  }
-
-  for (auto *dock : registry->dockwidgets()) {
-    if (dock && dock->isVisible() && dock->isFocused()) {
-      QString name = dock->uniqueName();
-      int dotIdx = name.indexOf('.');
-      return dotIdx != -1 ? name.mid(dotIdx + 1) : name;
-    }
-  }
-
   return m_activeDockId;
 }
 
 void WorkspaceLayoutController::setActiveDockId(const QString &dockId) {
-  QString cleanId = dockId;
-  int dotIdx = cleanId.indexOf('.');
-  if (dotIdx != -1)
-    cleanId = cleanId.mid(dotIdx + 1);
-
-  if (m_activeDockId != cleanId) {
-    m_activeDockId = cleanId;
-    qDebug() << "[Workspace] Active dock changed to:" << m_activeDockId;
+  if (m_activeDockId != dockId) {
+    m_activeDockId = dockId;
     emit activeDockIdChanged(m_activeDockId);
   }
 }

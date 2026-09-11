@@ -10,6 +10,11 @@ Item {
         color: "#121212"
     }
 
+    HoverHandler {
+        onHoveredChanged: if (hovered && typeof layoutController !== "undefined" && layoutController)
+            layoutController.setActiveDockId("ProjectmonitorPanel")
+    }
+
     XylaVideoSurface {
         id: videoSurface
         anchors.fill: parent

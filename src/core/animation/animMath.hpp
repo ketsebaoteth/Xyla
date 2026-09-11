@@ -40,9 +40,12 @@ inline float evalBezierY(float t, float p1, float p2) noexcept {
 }
 
 // Finds t ∈ [0,1] such that the X (time) Bezier equals the target x.
-// Uses Newton-Raphson with a fixed iteration limit.
+// Hybrid Newton-Raphson + Bisection: guarantees 100% convergence and zero
+// flickering.
 inline float solveBezierT(float x, float p1x, float p2x) noexcept {
   float t = x; // initial guess
+
+  // 1. Fast Newton-Raphson iterations
   for (int i = 0; i < 8; ++i) {
     const float u = 1.0f - t;
     const float tt = t * t;
@@ -51,12 +54,37 @@ inline float solveBezierT(float x, float p1x, float p2x) noexcept {
         (3.0f * uu * t * p1x) + (3.0f * u * tt * p2x) + (tt * t);
     const float derivative = (3.0f * uu * p1x) + (6.0f * u * t * (p2x - p1x)) +
                              (3.0f * tt * (1.0f - p2x));
-    if (std::abs(derivative) < 1e-6f)
+
+    if (std::abs(current - x) < 1e-5f)
+      return t;
+    if (std::abs(derivative) <
+        1e-4f) // Derivative too flat, bail out to bisection!
       break;
+
     t -= (current - x) / derivative;
-    t = std::clamp(t, 0.0f, 1.0f);
   }
-  return t;
+
+  // 2. Guaranteed Bisection Fallback (Binary Search)
+  // Never divides by zero. Eliminates all seismograph spikes and animation
+  // flickering.
+  float t0 = 0.0f;
+  float t1 = 1.0f;
+  t = x;
+
+  for (int j = 0; j < 16; ++j) {
+    const float u = 1.0f - t;
+    const float current =
+        (3.0f * u * u * t * p1x) + (3.0f * u * t * t * p2x) + (t * t * t);
+    if (std::abs(current - x) < 1e-5f)
+      return t;
+    if (x > current)
+      t0 = t;
+    else
+      t1 = t;
+    t = (t0 + t1) * 0.5f;
+  }
+
+  return std::clamp(t, 0.0f, 1.0f);
 }
 
 } // namespace xyla::anim

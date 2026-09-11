@@ -1,6 +1,7 @@
 #pragma once
 
 #include "core/actions/xylaActionManager.hpp"
+#include "core/animation/keyframeContextMenuController.hpp"
 #include "core/render/nodeGraph.hpp"
 #include "core/timeline/playback/playbackManager.hpp"
 #include "core/timeline/timelineClip.hpp"
@@ -12,6 +13,7 @@
 #include <QVariantList>
 #include <QVariantMap>
 #include <memory>
+#include <qtmetamacros.h>
 #include <vector>
 
 namespace xyla {
@@ -70,7 +72,13 @@ public:
                                            const QString &key,
                                            const QVariant &value);
 
-  Q_INVOKABLE void removeKeyframes(const QVariantList &keyframeList);
+  Q_INVOKABLE void updateKeyframe(const QString &clipId,
+                                  const QString &propertyId, int64_t oldFrame,
+                                  int64_t newFrame, float newValue, int interp,
+                                  float inX, float inY, float outX, float outY);
+
+  Q_INVOKABLE
+  void removeKeyframes(const QVariantList &keyframeList);
 
   void setSelectedClipId(const QString &clipId);
 
@@ -314,15 +322,27 @@ public:
                                   const QString &propertyId, int64_t frame,
                                   const QVariant &currentValue);
   [[nodiscard]] TimelineClip *resolveVideoClip(const QString &clipId);
+
+  // Returns the specific clip in the clip's link group that handles the given
+  TimelineClip *resolveClipForProperty(const QString &clipId,
+                                       const anim::PropertyDescriptor &desc);
+
   Q_INVOKABLE void removeKeyframe(const QString &clipId,
                                   const QString &propertyId, int64_t frame);
   Q_INVOKABLE void moveKeyframe(const QString &clipId,
                                 const QString &propertyId, int64_t oldFrame,
                                 int64_t newFrame);
+  Q_INVOKABLE void moveKeyframes(const QVariantList &keyframeList,
+                                 int64_t deltaFrames);
   Q_INVOKABLE QVariantList getClipAnimChannels(const QString &clipId,
                                                int64_t currentFrame) const;
   void setPlaybackManagerP(PlaybackManager *playbackManagerP) {
     m_playbackManager = playbackManagerP;
+  }
+  void pasteKeyframes(const std::vector<anim::ClipboardKeyframe> &keys,
+                      int64_t offset, anim::MergeMode mode);
+  [[nodiscard]] XylaUndoStack *undoStack() const noexcept {
+    return m_undoStack;
   }
 signals:
   void visualFrameInvalidated();
@@ -338,6 +358,8 @@ signals:
   void globalRippleModeChanged(bool enabled);
   void snappingEnabledChanged(bool enabled);
   void deleteSelectedKeyframesRequested();
+  void copyKeyframesRequested();
+  void pasteKeyframesRequested();
 
 private:
   bool m_isBatchingSelection{false};

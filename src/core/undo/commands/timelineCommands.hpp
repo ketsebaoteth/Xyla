@@ -289,4 +289,52 @@ private:
   TimelineModel *m_model{nullptr};
   std::vector<KeyframeRecord> m_records;
 };
+
+class MoveKeyframesCommand : public XylaCommand {
+public:
+  struct MoveRecord {
+    QString clipId;
+    QString propId;
+    int64_t oldAbsFrame{0};
+    int64_t newAbsFrame{0};
+    int64_t oldRelFrame{0};
+    int64_t newRelFrame{0};
+  };
+
+  MoveKeyframesCommand(TimelineModel *model, std::vector<MoveRecord> moves);
+
+  void redo() override;
+  void undo() override;
+  QString text() const override {
+    return m_moves.size() > 1 ? "Move Keyframes" : "Move Keyframe";
+  }
+
+private:
+  TimelineModel *m_model{nullptr};
+  std::vector<MoveRecord> m_moves;
+};
+
+class PasteKeyframesCommand : public XylaCommand {
+public:
+  struct KeyRecord {
+    QString clipId;
+    QString propId;
+    int64_t relFrame{0};
+    float value{0.0f};
+    anim::Interpolation interpolation{anim::Interpolation::Linear};
+    anim::BezierHandles bezier{};
+  };
+
+  PasteKeyframesCommand(TimelineModel *model, std::vector<KeyRecord> pastedKeys,
+                        std::vector<KeyRecord> overwrittenKeys);
+
+  void redo() override;
+  void undo() override;
+  QString text() const override { return "Paste Keyframes"; }
+
+private:
+  TimelineModel *m_model{nullptr};
+  std::vector<KeyRecord> m_pastedKeys;
+  std::vector<KeyRecord> m_overwrittenKeys;
+};
 } // namespace xyla

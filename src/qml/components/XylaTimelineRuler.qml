@@ -15,8 +15,6 @@ Item {
 
     readonly property color bgDark: "#181818"
     readonly property color borderDark: "#2d2d2d"
-
-    // Unified style palette color matching the rod and badge fill
     readonly property color themeAccent: "#444444"
 
     height: 28
@@ -63,28 +61,47 @@ Item {
             width: 1
             color: root.borderDark
         }
-
-        Text {
-            anchors.centerIn: parent
-            text: "TIMELINE RULER"
-            color: "#555555"
-            font.pixelSize: 10
-            font.bold: true
-            renderType: Text.NativeRendering
-        }
     }
 
     Item {
+        id: rulerTrackViewport
         anchors.left: rulerHeader.right
         anchors.right: parent.right
         anchors.top: parent.top
         anchors.bottom: parent.bottom
         clip: true
 
+        // Base Dark Void Background for time < 0
+        Rectangle {
+            anchors.fill: parent
+            color: "#090909"
+        }
+
+        // Active Timeline Ruler Area (X >= 0)
+        Rectangle {
+            x: Math.max(0, -root.horizontalOffset)
+            y: 0
+            width: Math.max(0, parent.width - x)
+            height: parent.height
+            color: root.bgDark
+        }
+
+        // Frame 0 Boundary Line
+        Rectangle {
+            x: -root.horizontalOffset
+            width: 1
+            height: parent.height
+            color: "#383838"
+            z: 8
+            visible: x >= 0 && x <= parent.width
+        }
+
         MouseArea {
             anchors.fill: parent
             cursorShape: Qt.PointingHandCursor
-            preventStealing: true
+            acceptedButtons: Qt.LeftButton | Qt.MiddleButton
+
+            property real lastPanX: 0
 
             function seekRuler(mouse, isRelease) {
                 if (!root.activePlaybackManager)
@@ -99,24 +116,58 @@ Item {
             }
 
             onPressed: function (mouse) {
+                if (mouse.button === Qt.MiddleButton) {
+                    lastPanX = mouse.x;
+                    return;
+                }
                 if (root.activePlaybackManager)
                     root.activePlaybackManager.startScrubbing();
                 seekRuler(mouse, false);
             }
 
             onPositionChanged: function (mouse) {
+                if (mouse.buttons & Qt.MiddleButton) {
+                    var dx = mouse.x - lastPanX;
+                    root.horizontalOffset -= dx;
+                    lastPanX = mouse.x;
+                    return;
+                }
                 if (pressed)
                     seekRuler(mouse, false);
             }
 
             onReleased: function (mouse) {
-                seekRuler(mouse, true);
+                if (mouse.button === Qt.LeftButton)
+                    seekRuler(mouse, true);
+            }
+
+            onWheel: wheel => {
+                // Ctrl + Wheel: Zoom centered on mouse
+                if ((wheel.modifiers & Qt.ControlModifier) && !(wheel.modifiers & Qt.ShiftModifier)) {
+                    var mouseCanvasX = wheel.x + root.horizontalOffset;
+                    var frameAtMouse = mouseCanvasX / root.zoomFactor;
+                    var mult = wheel.angleDelta.y > 0 ? 1.15 : (1.0 / 1.15);
+                    var newZoom = Math.max(0.1, Math.min(50.0, root.zoomFactor * mult));
+
+                    if (newZoom !== root.zoomFactor) {
+                        root.zoomFactor = newZoom;
+                        root.horizontalOffset = (frameAtMouse * newZoom) - wheel.x;
+                    }
+                    return;
+                }
+
+                // Shift + Wheel: Horizontal Pan
+                if (wheel.modifiers & Qt.ShiftModifier) {
+                    var deltaH = wheel.angleDelta.y !== 0 ? wheel.angleDelta.y : wheel.angleDelta.x;
+                    root.horizontalOffset -= deltaH;
+                    return;
+                }
             }
         }
 
         Item {
             x: -root.horizontalOffset
-            width: root.contentWidth
+            width: root.contentWidth * root.zoomFactor
             height: parent.height
 
             Repeater {
@@ -179,7 +230,6 @@ Item {
                     width: Math.round(stepPixelWidth)
                     height: parent.height
 
-                    // 1. FIXED/RESTORED: Milestone rod line is taller, now sharing color with the palette back
                     Rectangle {
                         id: milestoneRod
                         width: 1
@@ -190,7 +240,6 @@ Item {
                         z: 5
                     }
 
-                    // 2. FIXED STYLES: Floating palette container in its original text position
                     Rectangle {
                         id: textPalette
                         anchors.left: parent.left
@@ -198,7 +247,6 @@ Item {
                         anchors.bottomMargin: 9.5
                         anchors.leftMargin: 0
 
-                        // FIX 1: Add your explicit left/right padding (e.g., 2px + 2px = 4px total padding) directly into the dynamic text width boundary
                         width: Math.min(textLabel.implicitWidth + 12, milestoneItem.stepPixelWidth - 4)
                         height: 14
 
@@ -213,38 +261,25 @@ Item {
 
                         Text {
                             id: textLabel
-
-                            // FIX 2: Restoring centerIn natively satisfies flawless vertical and horizontal centering inside the fixed palette box
                             anchors.centerIn: parent
-
                             text: root.formatRulerTime(modelData, currentStep)
                             color: "#ffffff"
                             font.pixelSize: 9
                             font.bold: true
                             renderType: Text.NativeRendering
-                            // visible: textPalette.width >= 56
                         }
                     }
 
-                    // 3. Inner submarkers between milestone intervals
-                    // 3. CORRECTED 7-TICK HIERARCHY: 7 ticks (8 perfect fractions)
                     Repeater {
                         model: milestoneItem.stepPixelWidth > 110 ? 7 : 0
 
                         delegate: Rectangle {
                             required property int index
 
-                            // Divide step width into 8 perfect partitions
                             x: Math.round((index + 1) * (milestoneItem.stepPixelWidth / 8))
                             anchors.bottom: parent.bottom
                             width: 1
-
-                            // 7-Tick Math Breakdown (index 0 to 6):
-                            // Center line: index 3 (the 4th tick) -> Tallest (height 8)
-                            // Quarters:    index 1 & 5 (the 25% and 75% marks) -> Medium (height 6)
-                            // Smallest:    index 0, 2, 4, 6 -> Shorter but highly visible (height 4.5)
                             height: (index === 3) ? 8 : ((index === 1 || index === 5) ? 6 : 4)
-
                             color: (index === 3) ? "#666666" : ((index === 1 || index === 5) ? "#555555" : "#444444")
                         }
                     }

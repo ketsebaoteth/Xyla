@@ -18,13 +18,18 @@ Item {
     property bool hasClip: activeClipId !== "" && activeClipData !== null
     property int currentTab: 0
 
-    // Resolved clip ids for current selection (supports linked A/V pair)
+    HoverHandler {
+        onHoveredChanged: {
+            if (hovered && typeof layoutController !== "undefined" && layoutController)
+                layoutController.setActiveDockId("InspectorPanel");
+        }
+    }
+
     property string videoClipId: ""
     property string audioClipId: ""
     property bool hasVideo: videoClipId !== ""
     property bool hasAudio: audioClipId !== ""
 
-    // Live values – Video
     property real clipPosX: 0.0
     property real clipPosY: 0.0
     property real clipScaleX: 1.0
@@ -34,11 +39,9 @@ Item {
     property real clipOpacity: 1.0
     property int clipBlendMode: 0
 
-    // Live values – Audio
     property real clipVolume: 1.0
     property real clipPan: 0.0
 
-    // Keyframe active state
     property bool posXKeyed: false
     property bool posYKeyed: false
     property bool scaleXKeyed: false
@@ -57,29 +60,36 @@ Item {
 
         const primaryId = activeClipId;
         const trackIdx = activeClipData.trackIndex ?? -1;
-        const kind = activeTimelineModel.getTrackKind(trackIdx);
+        const primaryKind = activeTimelineModel.getTrackKind(trackIdx);
 
-        if (kind === 0) {          // Video Track
+        if (primaryKind === 0) {
             videoClipId = primaryId;
-            const linked = activeTimelineModel.getLinkedClipIds(primaryId);
-            for (let i = 0; i < linked.length; ++i) {
-                if (linked[i] !== primaryId) {
-                    audioClipId = linked[i];
-                    break;
-                }
-            }
-        } else if (kind === 1) {   // Audio Track
+        } else if (primaryKind === 1) {
             audioClipId = primaryId;
-            const linked = activeTimelineModel.getLinkedClipIds(primaryId);
-            for (let i = 0; i < linked.length; ++i) {
-                if (linked[i] !== primaryId) {
-                    videoClipId = linked[i];
-                    break;
+        } else {
+            videoClipId = primaryId;
+        }
+
+        const linked = activeTimelineModel.getLinkedClipIds(primaryId);
+        for (let i = 0; i < linked.length; ++i) {
+            const cId = linked[i];
+            if (cId === primaryId)
+                continue;
+
+            const cData = activeTimelineModel.findClip ? null : null;
+            for (let t = 0; t < activeTimelineModel.trackCount; ++t) {
+                const clipsOnTrack = activeTimelineModel.getClipsForTrack(t);
+                for (let k = 0; k < clipsOnTrack.length; ++k) {
+                    if (clipsOnTrack[k].clipId === cId) {
+                        const tKind = activeTimelineModel.getTrackKind(t);
+                        if (tKind === 0 && videoClipId === "")
+                            videoClipId = cId;
+                        else if (tKind === 1 && audioClipId === "")
+                            audioClipId = cId;
+                        break;
+                    }
                 }
             }
-        } else {
-            // Fallback: assume primary is video
-            videoClipId = primaryId;
         }
 
         if (currentTab === 0 && !hasVideo && hasAudio)
@@ -89,11 +99,11 @@ Item {
     }
 
     function updateLiveValues() {
-        if (!activeTimelineModel)
+        if (!activeTimelineModel || !hasClip)
             return;
 
         const vId = videoClipId !== "" ? videoClipId : activeClipId;
-        if (vId !== "" && hasVideo) {
+        if (hasVideo) {
             clipPosX = activeTimelineModel.getClipEvaluatedProperty(vId, "positionX", currentPlayheadFrame);
             clipPosY = activeTimelineModel.getClipEvaluatedProperty(vId, "positionY", currentPlayheadFrame);
             clipScaleX = activeTimelineModel.getClipEvaluatedProperty(vId, "scaleX", currentPlayheadFrame);
@@ -110,7 +120,7 @@ Item {
         }
 
         const aId = audioClipId !== "" ? audioClipId : activeClipId;
-        if (aId !== "" && hasAudio) {
+        if (hasAudio) {
             clipVolume = activeTimelineModel.getClipEvaluatedProperty(aId, "volume", currentPlayheadFrame);
             clipPan = activeTimelineModel.getClipEvaluatedProperty(aId, "pan", currentPlayheadFrame);
 
@@ -119,7 +129,6 @@ Item {
         }
     }
 
-    // Direct playback reactivity (updates live values smoothly during playback)
     onCurrentPlayheadFrameChanged: updateLiveValues()
 
     function commitTransform(key, val) {
@@ -131,7 +140,6 @@ Item {
 
         activeTimelineModel.updateClipTransformProperty(id, key, val);
 
-        // Uniform scale sync
         if (uniformScale) {
             if (key === "scaleX") {
                 activeTimelineModel.updateClipTransformProperty(id, "scaleY", val);
@@ -150,6 +158,7 @@ Item {
         const id = audioClipId !== "" ? audioClipId : activeClipId;
         if (id === "")
             return;
+
         activeTimelineModel.updateClipAudioProperty(id, key, val);
         keyframeRevision++;
         updateLiveValues();
@@ -158,13 +167,12 @@ Item {
     function togglePropKeyframe(clipId, key, currentVal) {
         if (!activeTimelineModel)
             return;
-        const id = clipId !== "" ? clipId : (videoClipId !== "" ? videoClipId : activeClipId);
+        const id = clipId !== "" ? clipId : activeClipId;
         if (id === "")
             return;
 
         activeTimelineModel.toggleKeyframe(id, key, currentPlayheadFrame, currentVal);
 
-        // Uniform scale keyframe sync: toggling X also toggles Y
         if (uniformScale) {
             if (key === "scaleX") {
                 activeTimelineModel.toggleKeyframe(id, "scaleY", currentPlayheadFrame, currentVal);
@@ -217,6 +225,11 @@ Item {
             }
         }
         function onSelectedClipIdChanged() {
+            propRoot.resolveSelection();
+            propRoot.updateLiveValues();
+            propRoot.keyframeRevision++;
+        }
+        function onSelectedClipDataChanged() {
             propRoot.resolveSelection();
             propRoot.updateLiveValues();
             propRoot.keyframeRevision++;
@@ -345,7 +358,6 @@ Item {
         opacity: propRoot.hasClip ? 1.0 : 0.18
         enabled: propRoot.hasClip
 
-        // Sidebar tabs
         Rectangle {
             Layout.fillHeight: true
             Layout.preferredWidth: 38
@@ -499,7 +511,6 @@ Item {
             }
         }
 
-        // Main content
         ColumnLayout {
             Layout.fillWidth: true
             Layout.fillHeight: true
@@ -562,7 +573,6 @@ Item {
                     width: propScroll.availableWidth
                     currentIndex: propRoot.currentTab
 
-                    // Tab 0 – Video
                     ColumnLayout {
                         width: propScroll.availableWidth
                         spacing: 2
@@ -613,7 +623,6 @@ Item {
                         }
                     }
 
-                    // Tab 1 – Audio
                     ColumnLayout {
                         width: propScroll.availableWidth
                         spacing: 2
@@ -640,7 +649,6 @@ Item {
                         }
                     }
 
-                    // Tab 2 – Metadata
                     ColumnLayout {
                         width: propScroll.availableWidth
                         spacing: 2

@@ -26,7 +26,10 @@ Item {
     property real saturation: 50.00
     property real hue: 50.00
     property real lumMix: 100.00
-
+    HoverHandler {
+        onHoveredChanged: if (hovered && typeof layoutController !== "undefined")
+            layoutController.setActiveDockId("ColorgradePanel")
+    }
     onClipColorDataChanged: {
         if (!clipColorData) {
             resetLocalUi();

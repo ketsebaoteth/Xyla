@@ -12,10 +12,18 @@ Item {
 
     // Model track counting
     readonly property int totalModelCount: {
-        if (!activeMixerModel) return 0
-        if (typeof activeMixerModel.count !== "undefined") return activeMixerModel.count
-        if (typeof activeMixerModel.rowCount === "function") return activeMixerModel.rowCount()
-        return 0
+        if (!activeMixerModel)
+            return 0;
+        if (typeof activeMixerModel.count !== "undefined")
+            return activeMixerModel.count;
+        if (typeof activeMixerModel.rowCount === "function")
+            return activeMixerModel.rowCount();
+        return 0;
+    }
+
+    HoverHandler {
+        onHoveredChanged: if (hovered && typeof layoutController !== "undefined" && layoutController)
+            layoutController.setActiveDockId("MixerPanel")
     }
 
     readonly property int activeTrackCount: Math.max(0, totalModelCount - 1)
@@ -103,7 +111,7 @@ Item {
                     }
                     onClicked: {
                         if (root.activeMixerModel && !stripRoot.isDummy)
-                            root.activeMixerModel.setMuted(stripRoot.trackIndex, !stripRoot.isMuted)
+                            root.activeMixerModel.setMuted(stripRoot.trackIndex, !stripRoot.isMuted);
                     }
                 }
 
@@ -127,7 +135,7 @@ Item {
                     }
                     onClicked: {
                         if (root.activeMixerModel && !stripRoot.isDummy)
-                            root.activeMixerModel.setSolo(stripRoot.trackIndex, !stripRoot.isSolo)
+                            root.activeMixerModel.setSolo(stripRoot.trackIndex, !stripRoot.isSolo);
                     }
                 }
             }
@@ -155,7 +163,7 @@ Item {
                     enabled: !stripRoot.isDummy
                     onValueChanged: {
                         if (root.activeMixerModel && !stripRoot.isDummy)
-                            root.activeMixerModel.setVolume(stripRoot.trackIndex, value)
+                            root.activeMixerModel.setVolume(stripRoot.trackIndex, value);
                     }
                 }
             }
@@ -190,7 +198,7 @@ Item {
                         enabled: !stripRoot.isMaster && !stripRoot.isDummy
                         onValueChanged: {
                             if (root.activeMixerModel && !stripRoot.isMaster && !stripRoot.isDummy)
-                                root.activeMixerModel.setPan(stripRoot.trackIndex, value)
+                                root.activeMixerModel.setPan(stripRoot.trackIndex, value);
                         }
                     }
                 }
@@ -208,12 +216,14 @@ Item {
                 maxValue: 6.0
                 stepSize: 0.1
                 decimals: 1
-                onValueCommitted: function(newValue) {
-                    if (stripRoot.isDummy) return
-                    var linearVal = Math.pow(10.0, newValue / 20.0)
-                    if (newValue <= -60.0) linearVal = 0.0
+                onValueCommitted: function (newValue) {
+                    if (stripRoot.isDummy)
+                        return;
+                    var linearVal = Math.pow(10.0, newValue / 20.0);
+                    if (newValue <= -60.0)
+                        linearVal = 0.0;
                     if (root.activeMixerModel)
-                        root.activeMixerModel.setVolume(stripRoot.trackIndex, linearVal)
+                        root.activeMixerModel.setVolume(stripRoot.trackIndex, linearVal);
                 }
             }
         }

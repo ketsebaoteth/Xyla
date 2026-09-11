@@ -21,6 +21,11 @@ Item {
     property real panY: 0.0
     property var nodePositions: ({})
 
+    HoverHandler {
+        onHoveredChanged: if (hovered && typeof layoutController !== "undefined" && layoutController)
+            layoutController.setActiveDockId("NodegraphPanel")
+    }
+
     // Multi-Selection State
     property var selectedNodeIds: []
     property bool isBoxSelecting: false
@@ -237,9 +242,7 @@ Item {
                     Text {
                         id: clipNameText
                         anchors.centerIn: parent
-                        text: (root.selectedClipData && root.selectedClipData.name !== undefined && root.selectedClipData.name !== null) 
-                            ? root.selectedClipData.name 
-                            : "No Clip Selected"
+                        text: (root.selectedClipData && root.selectedClipData.name !== undefined && root.selectedClipData.name !== null) ? root.selectedClipData.name : "No Clip Selected"
                         // text: root.selectedClipData ? root.selectedClipData.name : "No Clip Selected"
                         color: root.selectedClipData ? "#ffffff" : "#666666"
                         font.pixelSize: 11

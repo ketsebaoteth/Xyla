@@ -344,22 +344,90 @@ DeleteKeyframesCommand::DeleteKeyframesCommand(
     TimelineModel *model, std::vector<KeyframeRecord> records)
     : m_model(model), m_records(std::move(records)) {}
 
+// @brief Executes keyframe deletion across targeted clip properties.
 void DeleteKeyframesCommand::redo() {
+  std::unordered_set<QString> modifiedClips;
+
+  for (const auto &rec : m_records) {
+    const auto *desc = anim::findPropertyDescriptor(rec.propId);
+    auto *clip = desc ? m_model->resolveClipForProperty(rec.clipId, *desc)
+                      : m_model->findClip(rec.clipId);
+    if (!clip) {
+      clip = m_model->findClip(rec.clipId);
+    }
+    if (!clip) {
+      continue;
+    }
+
+    auto *prop = clip->findAnimProperty(rec.propId);
+    if (!prop) {
+      continue;
+    }
+
+    prop->removeKeyframe(rec.relFrame);
+    modifiedClips.insert(clip->clipId());
+  }
+
+  for (const auto &cId : modifiedClips) {
+    emit m_model->clipPropertiesChanged(cId);
+  }
+  emit m_model->selectedClipDataChanged();
+  m_model->markDirty();
+  emit m_model->visualFrameInvalidated();
+}
+
+// @brief Restores deleted keyframes to their respective clip properties.
+void DeleteKeyframesCommand::undo() {
+  std::unordered_set<QString> modifiedClips;
+
+  for (const auto &rec : m_records) {
+    const auto *desc = anim::findPropertyDescriptor(rec.propId);
+    auto *clip = desc ? m_model->resolveClipForProperty(rec.clipId, *desc)
+                      : m_model->findClip(rec.clipId);
+    if (!clip) {
+      clip = m_model->findClip(rec.clipId);
+    }
+    if (!clip) {
+      continue;
+    }
+
+    auto *prop = clip->findAnimProperty(rec.propId);
+    if (!prop) {
+      continue;
+    }
+
+    prop->setKeyframe(rec.relFrame, rec.value, rec.interpolation, rec.bezier);
+    modifiedClips.insert(clip->clipId());
+  }
+
+  for (const auto &cId : modifiedClips) {
+    emit m_model->clipPropertiesChanged(cId);
+  }
+  emit m_model->selectedClipDataChanged();
+  m_model->markDirty();
+  emit m_model->visualFrameInvalidated();
+}
+
+MoveKeyframesCommand::MoveKeyframesCommand(TimelineModel *model,
+                                           std::vector<MoveRecord> moves)
+    : m_model(model), m_moves(std::move(moves)) {}
+
+void MoveKeyframesCommand::redo() {
   if (!m_model)
     return;
 
   std::unordered_set<QString> affectedClips;
 
-  for (const auto &rec : m_records) {
-    auto *clip = m_model->findClip(rec.clipId);
+  for (const auto &m : m_moves) {
+    auto *clip = m_model->findClip(m.clipId);
     if (!clip)
       continue;
-    auto *prop = clip->findAnimProperty(rec.propId);
+    auto *prop = clip->findAnimProperty(m.propId);
     if (!prop)
       continue;
 
-    prop->removeKeyframe(rec.relFrame);
-    affectedClips.insert(rec.clipId);
+    prop->moveKeyframe(m.oldRelFrame, m.newRelFrame);
+    affectedClips.insert(m.clipId);
   }
 
   for (const auto &cId : affectedClips) {
@@ -370,22 +438,109 @@ void DeleteKeyframesCommand::redo() {
   emit m_model->visualFrameInvalidated();
 }
 
-void DeleteKeyframesCommand::undo() {
+void MoveKeyframesCommand::undo() {
   if (!m_model)
     return;
 
   std::unordered_set<QString> affectedClips;
 
-  for (const auto &rec : m_records) {
-    auto *clip = m_model->findClip(rec.clipId);
+  // Move back in reverse direction
+  for (const auto &m : m_moves) {
+    auto *clip = m_model->findClip(m.clipId);
     if (!clip)
       continue;
-    auto *prop = clip->findAnimProperty(rec.propId);
+    auto *prop = clip->findAnimProperty(m.propId);
     if (!prop)
       continue;
 
-    prop->setKeyframe(rec.relFrame, rec.value, rec.interpolation, rec.bezier);
-    affectedClips.insert(rec.clipId);
+    prop->moveKeyframe(m.newRelFrame, m.oldRelFrame);
+    affectedClips.insert(m.clipId);
+  }
+
+  for (const auto &cId : affectedClips) {
+    emit m_model->clipPropertiesChanged(cId);
+  }
+  emit m_model->selectedClipDataChanged();
+  m_model->markDirty();
+  emit m_model->visualFrameInvalidated();
+}
+
+PasteKeyframesCommand::PasteKeyframesCommand(
+    TimelineModel *model, std::vector<KeyRecord> pastedKeys,
+    std::vector<KeyRecord> overwrittenKeys)
+    : m_model(model), m_pastedKeys(std::move(pastedKeys)),
+      m_overwrittenKeys(std::move(overwrittenKeys)) {}
+
+void PasteKeyframesCommand::redo() {
+  if (!m_model)
+    return;
+
+  std::unordered_set<QString> affectedClips;
+
+  // 1. Remove overwritten keys
+  for (const auto &k : m_overwrittenKeys) {
+    auto *clip = m_model->findClip(k.clipId);
+    if (!clip)
+      continue;
+    auto *prop = clip->findAnimProperty(k.propId);
+    if (!prop)
+      continue;
+
+    prop->removeKeyframe(k.relFrame);
+    affectedClips.insert(k.clipId);
+  }
+
+  // 2. Insert pasted keys
+  for (const auto &k : m_pastedKeys) {
+    auto *clip = m_model->findClip(k.clipId);
+    if (!clip)
+      continue;
+    auto *prop = clip->findAnimProperty(k.propId);
+    if (!prop)
+      continue;
+
+    prop->setKeyframe(k.relFrame, k.value, k.interpolation, k.bezier);
+    affectedClips.insert(k.clipId);
+  }
+
+  for (const auto &cId : affectedClips) {
+    emit m_model->clipPropertiesChanged(cId);
+  }
+  emit m_model->selectedClipDataChanged();
+  m_model->markDirty();
+  emit m_model->visualFrameInvalidated();
+}
+
+void PasteKeyframesCommand::undo() {
+  if (!m_model)
+    return;
+
+  std::unordered_set<QString> affectedClips;
+
+  // 1. Remove the pasted keys
+  for (const auto &k : m_pastedKeys) {
+    auto *clip = m_model->findClip(k.clipId);
+    if (!clip)
+      continue;
+    auto *prop = clip->findAnimProperty(k.propId);
+    if (!prop)
+      continue;
+
+    prop->removeKeyframe(k.relFrame);
+    affectedClips.insert(k.clipId);
+  }
+
+  // 2. Restore whatever keys were overwritten before the paste
+  for (const auto &k : m_overwrittenKeys) {
+    auto *clip = m_model->findClip(k.clipId);
+    if (!clip)
+      continue;
+    auto *prop = clip->findAnimProperty(k.propId);
+    if (!prop)
+      continue;
+
+    prop->setKeyframe(k.relFrame, k.value, k.interpolation, k.bezier);
+    affectedClips.insert(k.clipId);
   }
 
   for (const auto &cId : affectedClips) {

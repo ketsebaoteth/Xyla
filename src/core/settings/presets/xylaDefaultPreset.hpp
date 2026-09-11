@@ -34,6 +34,8 @@ inline std::unordered_map<QString, QString> getXylaDefaultPreset() {
           {"timeline.delete", "Delete"},
           {"timeline.snapToggle", "N"},
           {"timeline.duplicate", "Ctrl+D"},
+          {"timeline.copy", "Ctrl+C"},
+          {"timeline.paste", "Ctrl+V"},
 
           // Zoom
           {"timeline.zoomIn", "="},

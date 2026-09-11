@@ -150,6 +150,10 @@ inline std::vector<ShortcutAction> getMasterActionCatalog() {
        "-", "-"},
       {"timeline.zoomFit", "Zoom to Fit", "Zoom & View",
        "Fit entire timeline in view", "Shift+Z", "Shift+Z"},
+      {"timeline.copy", "Copy Selection", "Timeline",
+       "Copies active selection based on the context", "Ctrl+C", "Ctrl+C"},
+      {"timeline.paste", "Paste Selection", "Timeline",
+       "Pastes selection previously copied", "Ctrl+V", "Ctrl+V"},
 
       // --- NODE GRAPH & GRADING ---
       {"nodegraph.addNode", "Add Node Search Palette", "Node Graph",

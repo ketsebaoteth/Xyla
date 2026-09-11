@@ -1,5 +1,4 @@
 #include "xylaActionManager.hpp"
-#include "core/log/logger.hpp"
 
 namespace xyla {
 
@@ -20,29 +19,30 @@ QString XylaActionManager::currentDockPrefix() const {
   if (!m_workspaceLayoutController)
     return QStringLiteral("timeline");
 
-  const QString dockId = m_workspaceLayoutController->activeDockId().toLower();
+  const QString dockId = m_workspaceLayoutController->activeDockId();
 
-  if (dockId.contains(QLatin1String("timeline")))
-    return QStringLiteral("timeline");
-  if (dockId.contains(QLatin1String("dopesheet")))
+  if (dockId == QLatin1String("DopesheetPanel"))
     return QStringLiteral("dopesheet");
-  if (dockId.contains(QLatin1String("nodegraph")))
+  if (dockId == QLatin1String("TimelinePanel"))
+    return QStringLiteral("timeline");
+  if (dockId == QLatin1String("NodegraphPanel"))
     return QStringLiteral("nodegraph");
-  if (dockId.contains(QLatin1String("media")))
+  if (dockId == QLatin1String("MediaPanel"))
     return QStringLiteral("media");
-  if (dockId.contains(QLatin1String("color")))
+  if (dockId == QLatin1String("ColorgradePanel"))
     return QStringLiteral("color");
-  if (dockId.contains(QLatin1String("mixer")))
+  if (dockId == QLatin1String("MixerPanel"))
     return QStringLiteral("mixer");
-  if (dockId.contains(QLatin1String("monitor")))
+  if (dockId == QLatin1String("ProjectmonitorPanel"))
     return QStringLiteral("monitor");
-  if (dockId.contains(QLatin1String("properties")) ||
-      dockId.contains(QLatin1String("inspector")))
+  if (dockId == QLatin1String("InspectorPanel"))
     return QStringLiteral("properties");
 
-  return dockId;
+  return QStringLiteral("timeline");
 }
 
+// @brief Resolves context-sensitive action ID taking active dock prefix into
+// account.
 QString XylaActionManager::resolveActionId(const QString &rawActionId) const {
   if (rawActionId.isEmpty())
     return {};
@@ -52,16 +52,25 @@ QString XylaActionManager::resolveActionId(const QString &rawActionId) const {
       (dotIdx != -1) ? rawActionId.mid(dotIdx + 1) : rawActionId;
   const QString domain = (dotIdx != -1) ? rawActionId.left(dotIdx) : QString();
 
-  // Global application actions that never depend on the active panel
+  // 1. Global application actions that NEVER depend on the active panel
   if (domain == QLatin1String("file") || domain == QLatin1String("app") ||
       domain == QLatin1String("project") || domain == QLatin1String("window") ||
-      domain == QLatin1String("help") ||
-      rawActionId == QLatin1String("edit.undo") ||
-      rawActionId == QLatin1String("edit.redo")) {
+      domain == QLatin1String("help") || domain == QLatin1String("edit") ||
+      suffix == QLatin1String("undo") || suffix == QLatin1String("redo")) {
+
+    // If registered directly under rawActionId (e.g. "edit.undo"), return it
+    if (m_actions.contains(rawActionId))
+      return rawActionId;
+
+    // If passed as bare "undo" or "redo", resolve to "edit.undo" / "edit.redo"
+    const QString editAction = QStringLiteral("edit.") + suffix;
+    if (m_actions.contains(editAction))
+      return editAction;
+
     return rawActionId;
   }
 
-  // 1. Check if the active dock has a specific action for this verb (e.g.
+  // 2. Check if the active dock has a specific action for this verb (e.g.
   // "dopesheet.delete")
   const QString activePrefix = currentDockPrefix();
   const QString contextAction = activePrefix + QLatin1Char('.') + suffix;
@@ -70,12 +79,12 @@ QString XylaActionManager::resolveActionId(const QString &rawActionId) const {
     return contextAction;
   }
 
-  // 2. If the active dock doesn't override it, check if the raw ID exists
+  // 3. If the active dock doesn't override it, check if the raw ID exists
   if (m_actions.contains(rawActionId)) {
     return rawActionId;
   }
 
-  // 3. Fallback: check if exactly one action matches this suffix
+  // 4. Fallback: check if exactly one action matches this suffix
   QString singleMatch;
   int matchCount = 0;
 

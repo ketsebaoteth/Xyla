@@ -1,8 +1,9 @@
 #pragma once
 
+#include "../dev/QmlHotReloader.h" // Included QmlHotReloader header
+#include "core/animation/keyframeContextMenuController.hpp"
 #include "core/settings/shortcutManager.hpp"
 #include "ui/models/mixerModel.hpp"
-#include "../dev/QmlHotReloader.h" // Included QmlHotReloader header
 
 #include <memory>
 #include <string>
@@ -95,6 +96,7 @@ private:
   std::unique_ptr<TimelineCompositor> m_timelineCompositor;
   std::unique_ptr<ShortcutManager> m_shortcutManager;
   std::unique_ptr<QmlHotReloader> m_hotReloader;
+
   QUrl m_rootQmlUrl;
 
   bool m_initialized{false};
