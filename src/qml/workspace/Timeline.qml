@@ -24,6 +24,20 @@ Item {
     property double zoomFactor: activeTimelineModel ? activeTimelineModel.zoomFactor : 1.0
     property real horizontalOffset: activeTimelineModel ? activeTimelineModel.horizontalOffset : 0.0
     property real contentWidth: 3600
+    property int cachedMaxFrame: 0
+
+    function refreshMaxFrame() {
+        if (!root.activeTimelineModel)
+            return;
+        var maxF = 0;
+        var all = root.activeTimelineModel.getAllClips();
+        for (var i = 0; i < all.length; ++i) {
+            var endF = Number(all[i].startFrame) + Number(all[i].durationFrames);
+            if (endF > maxF)
+                maxF = endF;
+        }
+        root.cachedMaxFrame = maxF;
+    }
 
     readonly property real projectFps: {
         if (!activeProject)
@@ -155,16 +169,7 @@ Item {
     }
 
     function updateContentWidth() {
-        if (!root.activeTimelineModel)
-            return;
-        var maxFrame = 0;
-        var all = root.activeTimelineModel.getAllClips();
-        for (var i = 0; i < all.length; ++i) {
-            var endF = Number(all[i].startFrame) + Number(all[i].durationFrames);
-            if (endF > maxFrame)
-                maxFrame = endF;
-        }
-        var requiredPx = (maxFrame * root.zoomFactor) + 1000;
+        var requiredPx = (root.cachedMaxFrame * root.zoomFactor) + 1500;
         root.contentWidth = Math.max(3600, requiredPx);
     }
 
@@ -755,12 +760,13 @@ Item {
                                 var cursorX = event.point?.position?.x ?? wheelHandler.point?.position?.x ?? (trackScrollArea.width / 2);
 
                                 if (event.modifiers & Qt.ControlModifier) {
-                                    var factor = event.angleDelta.y > 0 ? 1.35 : 0.74;
-                                    // MODIFIED: Updated cursor X coordinate calculation including paletteStripWidth
-                                    root.applyZoom(factor, cursorX + root.headerWidth + root.paletteStripWidth);
+                                    var delta = event.angleDelta.y;
+                                    if (delta !== 0) {
+                                        var zoomMultiplier = Math.pow(1.001, delta);
+                                        root.applyZoom(zoomMultiplier, cursorX + root.headerWidth + root.paletteStripWidth);
+                                    }
                                     return;
                                 }
-
                                 var pDeltaX = event.pixelDelta.x !== 0 ? event.pixelDelta.x : event.angleDelta.x;
                                 var pDeltaY = event.pixelDelta.y !== 0 ? event.pixelDelta.y : event.angleDelta.y;
 

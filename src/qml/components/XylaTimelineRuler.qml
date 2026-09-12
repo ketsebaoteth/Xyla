@@ -19,8 +19,7 @@ Item {
 
     height: 28
 
-    function formatRulerTime(frame, stepFrames) {
-        var safeFps = root.fps > 0 ? root.fps : 30.0;
+    function formatRulerTime(frame, safeFps) {
         var totalSec = frame / safeFps;
         var mins = Math.floor(totalSec / 60);
         var secs = Math.floor(totalSec % 60);
@@ -71,29 +70,152 @@ Item {
         anchors.bottom: parent.bottom
         clip: true
 
-        // Base Dark Void Background for time < 0
-        Rectangle {
+        // ── High-Performance Canvas Ruler (0 allocations, 120 FPS) ──
+        Canvas {
+            id: rulerCanvas
             anchors.fill: parent
-            color: "#090909"
-        }
+            renderTarget: Canvas.Image
 
-        // Active Timeline Ruler Area (X >= 0)
-        Rectangle {
-            x: Math.max(0, -root.horizontalOffset)
-            y: 0
-            width: Math.max(0, parent.width - x)
-            height: parent.height
-            color: root.bgDark
-        }
+            onPaint: {
+                var ctx = getContext("2d");
+                var viewW = width;
+                var viewH = height;
+                ctx.clearRect(0, 0, viewW, viewH);
 
-        // Frame 0 Boundary Line
-        Rectangle {
-            x: -root.horizontalOffset
-            width: 1
-            height: parent.height
-            color: "#383838"
-            z: 8
-            visible: x >= 0 && x <= parent.width
+                if (viewW <= 0 || viewH <= 0)
+                    return;
+
+                // 1. Dark Void for time < 0
+                ctx.fillStyle = "#090909";
+                ctx.fillRect(0, 0, viewW, viewH);
+
+                // 2. Active Timeline Area (X >= 0)
+                var zeroX = -root.horizontalOffset;
+                if (zeroX < viewW) {
+                    var activeLeft = Math.max(0, zeroX);
+                    ctx.fillStyle = root.bgDark;
+                    ctx.fillRect(activeLeft, 0, viewW - activeLeft, viewH);
+                }
+
+                // 3. Frame 0 Boundary Line
+                if (zeroX >= 0 && zeroX <= viewW) {
+                    ctx.fillStyle = "#383838";
+                    ctx.fillRect(zeroX, 0, 1, viewH);
+                }
+
+                // 4. Compositor Cached Ranges (Blue Accent Bar)
+                if (root.activeCompositor && root.activeCompositor.cachedRanges) {
+                    var ranges = root.activeCompositor.cachedRanges;
+                    ctx.fillStyle = "#2555D3";
+                    ctx.strokeStyle = "#3B82F6";
+                    ctx.lineWidth = 1;
+                    for (var r = 0; r < ranges.length; ++r) {
+                        var cr = ranges[r];
+                        var rStart = (cr.start * root.zoomFactor) - root.horizontalOffset;
+                        var rEnd = ((cr.end + 1) * root.zoomFactor) - root.horizontalOffset;
+                        var rW = Math.max(3, rEnd - rStart);
+                        if (rEnd >= 0 && rStart <= viewW) {
+                            ctx.fillRect(Math.round(rStart), viewH - 4, Math.round(rW), 3);
+                            ctx.strokeRect(Math.round(rStart) + 0.5, viewH - 4 + 0.5, Math.round(rW), 3);
+                        }
+                    }
+                }
+
+                // 5. Calculate visible step & tick range (ONLY FOR THE SCREEN VIEWPORT)
+                var safeFps = root.fps > 0 ? root.fps : 30.0;
+                var step = root.calculateStepFrames();
+                var stepPixels = step * root.zoomFactor;
+
+                var startFrame = Math.max(0, Math.floor(root.horizontalOffset / root.zoomFactor));
+                var endFrame = Math.ceil((root.horizontalOffset + viewW) / root.zoomFactor);
+                var alignStart = Math.floor(startFrame / step) * step;
+
+                // Setup typography once
+                ctx.font = "bold 9px monospace, sans-serif";
+                ctx.textAlign = "center";
+                ctx.textBaseline = "middle";
+
+                // Iterate only through the ~15-25 marks on screen
+                for (var f = alignStart; f <= endFrame + step; f += step) {
+                    var screenX = Math.round((f * root.zoomFactor) - root.horizontalOffset);
+
+                    // Subdivisions (7 ticks if zoomed in enough)
+                    if (stepPixels > 110) {
+                        var subStep = stepPixels / 8;
+                        for (var s = 1; s < 8; ++s) {
+                            var sx = Math.round(screenX + s * subStep);
+                            if (sx >= 0 && sx <= viewW) {
+                                var subH = (s === 4) ? 8 : ((s === 2 || s === 6) ? 6 : 4);
+                                ctx.fillStyle = (s === 4) ? "#666666" : ((s === 2 || s === 6) ? "#555555" : "#444444");
+                                ctx.fillRect(sx, viewH - subH, 1, subH);
+                            }
+                        }
+                    }
+
+                    if (screenX < -50 || screenX > viewW + 100)
+                        continue;
+
+                    // Milestone Rod
+                    ctx.fillStyle = root.themeAccent;
+                    ctx.fillRect(screenX, viewH - 13, 1, 13);
+
+                    // Time Text Badge
+                    if (stepPixels > 24) {
+                        var timeStr = root.formatRulerTime(f, safeFps);
+                        var textMetrics = ctx.measureText(timeStr);
+                        var textW = textMetrics.width;
+                        var badgeW = Math.min(textW + 12, stepPixels - 4);
+                        var badgeH = 14;
+                        var badgeX = screenX;
+                        var badgeY = viewH - 13 - badgeH + 3.5;
+
+                        // Draw Badge Surface with rounded corners (top-left, top-right, bottom-right radius 6)
+                        ctx.fillStyle = "#292929";
+                        ctx.beginPath();
+                        ctx.moveTo(badgeX, badgeY + badgeH);
+                        ctx.lineTo(badgeX, badgeY + 6);
+                        ctx.arcTo(badgeX, badgeY, badgeX + 6, badgeY, 6);
+                        ctx.lineTo(badgeX + badgeW - 6, badgeY);
+                        ctx.arcTo(badgeX + badgeW, badgeY, badgeX + badgeW, badgeY + 6, 6);
+                        ctx.lineTo(badgeX + badgeW, badgeY + badgeH - 6);
+                        ctx.arcTo(badgeX + badgeW, badgeY + badgeH, badgeX + badgeW - 6, badgeY + badgeH, 6);
+                        ctx.lineTo(badgeX, badgeY + badgeH);
+                        ctx.closePath();
+                        ctx.fill();
+
+                        // Centered Badge Text
+                        ctx.fillStyle = "#ffffff";
+                        ctx.fillText(timeStr, badgeX + (badgeW / 2), badgeY + (badgeH / 2));
+                    }
+                }
+
+                // 6. Bottom Separator Line
+                ctx.fillStyle = root.borderDark;
+                ctx.fillRect(0, viewH - 1, viewW, 1);
+            }
+
+            Connections {
+                target: root
+                function onHorizontalOffsetChanged() {
+                    rulerCanvas.requestPaint();
+                }
+                function onZoomFactorChanged() {
+                    rulerCanvas.requestPaint();
+                }
+                function onFpsChanged() {
+                    rulerCanvas.requestPaint();
+                }
+            }
+
+            Connections {
+                target: root.activeCompositor ? root.activeCompositor : null
+                function onCachedRangesChanged() {
+                    rulerCanvas.requestPaint();
+                }
+            }
+
+            onWidthChanged: requestPaint()
+            onHeightChanged: requestPaint()
         }
 
         MouseArea {
@@ -142,17 +264,21 @@ Item {
             }
 
             onWheel: wheel => {
-                // Ctrl + Wheel: Zoom centered on mouse
+                // Ctrl + Wheel: Smooth Zoom centered on mouse
                 if ((wheel.modifiers & Qt.ControlModifier) && !(wheel.modifiers & Qt.ShiftModifier)) {
-                    var mouseCanvasX = wheel.x + root.horizontalOffset;
-                    var frameAtMouse = mouseCanvasX / root.zoomFactor;
-                    var mult = wheel.angleDelta.y > 0 ? 1.15 : (1.0 / 1.15);
-                    var newZoom = Math.max(0.1, Math.min(50.0, root.zoomFactor * mult));
+                    var delta = wheel.angleDelta.y;
+                    if (delta !== 0) {
+                        var mouseCanvasX = wheel.x + root.horizontalOffset;
+                        var frameAtMouse = mouseCanvasX / root.zoomFactor;
+                        var zoomMultiplier = Math.pow(1.001, delta);
+                        var newZoom = Math.max(0.1, Math.min(50.0, root.zoomFactor * zoomMultiplier));
 
-                    if (newZoom !== root.zoomFactor) {
-                        root.zoomFactor = newZoom;
-                        root.horizontalOffset = (frameAtMouse * newZoom) - wheel.x;
+                        if (newZoom !== root.zoomFactor) {
+                            root.zoomFactor = newZoom;
+                            root.horizontalOffset = (frameAtMouse * newZoom) - wheel.x;
+                        }
                     }
+                    wheel.accepted = true;
                     return;
                 }
 
@@ -160,129 +286,8 @@ Item {
                 if (wheel.modifiers & Qt.ShiftModifier) {
                     var deltaH = wheel.angleDelta.y !== 0 ? wheel.angleDelta.y : wheel.angleDelta.x;
                     root.horizontalOffset -= deltaH;
+                    wheel.accepted = true;
                     return;
-                }
-            }
-        }
-
-        Item {
-            x: -root.horizontalOffset
-            width: root.contentWidth * root.zoomFactor
-            height: parent.height
-
-            Repeater {
-                model: root.activeCompositor?.cachedRanges ?? []
-
-                delegate: Rectangle {
-                    required property var modelData
-
-                    readonly property real startFrame: modelData?.start ?? 0
-                    readonly property real endFrame: modelData?.end ?? 0
-
-                    y: parent.height - 4
-                    height: 3
-                    color: "#2555D3"
-                    border.color: "#3B82F6"
-                    border.width: 1
-                    radius: 1
-                    z: 2
-                    visible: startFrame >= 0 && endFrame >= startFrame
-
-                    x: Math.round(startFrame * root.zoomFactor)
-                    width: Math.max(3, Math.round((endFrame - startFrame + 1) * root.zoomFactor))
-                }
-            }
-
-            Rectangle {
-                anchors.left: parent.left
-                anchors.right: parent.right
-                anchors.bottom: parent.bottom
-                height: 1
-                color: root.borderDark
-                z: 1
-            }
-
-            Repeater {
-                model: {
-                    var step = root.calculateStepFrames();
-                    var startFrame = Math.max(0, Math.floor(root.horizontalOffset / root.zoomFactor));
-                    var visibleWidth = parent.width > 0 ? parent.width : 2000;
-                    var endFrame = Math.ceil((root.horizontalOffset + visibleWidth) / root.zoomFactor);
-
-                    var alignStart = Math.floor(startFrame / step) * step;
-                    var count = Math.ceil((endFrame - alignStart) / step) + 1;
-
-                    var frames = [];
-                    for (var i = 0; i < count; ++i) {
-                        frames.push(alignStart + (i * step));
-                    }
-                    return frames;
-                }
-
-                delegate: Item {
-                    id: milestoneItem
-                    required property var modelData
-                    readonly property real currentStep: root.calculateStepFrames()
-                    readonly property real stepPixelWidth: currentStep * root.zoomFactor
-
-                    x: Math.round(modelData * root.zoomFactor)
-                    y: 0
-                    width: Math.round(stepPixelWidth)
-                    height: parent.height
-
-                    Rectangle {
-                        id: milestoneRod
-                        width: 1
-                        height: 13
-                        color: root.themeAccent
-                        anchors.left: parent.left
-                        anchors.bottom: parent.bottom
-                        z: 5
-                    }
-
-                    Rectangle {
-                        id: textPalette
-                        anchors.left: parent.left
-                        anchors.bottom: parent.bottom
-                        anchors.bottomMargin: 9.5
-                        anchors.leftMargin: 0
-
-                        width: Math.min(textLabel.implicitWidth + 12, milestoneItem.stepPixelWidth - 4)
-                        height: 14
-
-                        color: "#292929"
-                        topLeftRadius: 6
-                        topRightRadius: 6
-                        bottomRightRadius: 6
-                        bottomLeftRadius: 0
-                        z: 6
-
-                        visible: milestoneItem.stepPixelWidth > 24
-
-                        Text {
-                            id: textLabel
-                            anchors.centerIn: parent
-                            text: root.formatRulerTime(modelData, currentStep)
-                            color: "#ffffff"
-                            font.pixelSize: 9
-                            font.bold: true
-                            renderType: Text.NativeRendering
-                        }
-                    }
-
-                    Repeater {
-                        model: milestoneItem.stepPixelWidth > 110 ? 7 : 0
-
-                        delegate: Rectangle {
-                            required property int index
-
-                            x: Math.round((index + 1) * (milestoneItem.stepPixelWidth / 8))
-                            anchors.bottom: parent.bottom
-                            width: 1
-                            height: (index === 3) ? 8 : ((index === 1 || index === 5) ? 6 : 4)
-                            color: (index === 3) ? "#666666" : ((index === 1 || index === 5) ? "#555555" : "#444444")
-                        }
-                    }
                 }
             }
         }
