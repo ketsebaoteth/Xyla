@@ -1,5 +1,6 @@
 import QtQuick
 import QtQuick.Controls
+import QtQuick.Layouts
 
 Item {
     id: root
@@ -20,12 +21,15 @@ Item {
     property bool isGroupLocked: root.activeTimelineModel ? root.activeTimelineModel.isClipOrGroupLocked(root.clipData?.clipId ?? "") : false
     readonly property bool isLocked: isClipExplicitlyLocked || isTrackLocked || isGroupLocked
 
+    // ── Global Render Toggles forwarded from TimelinePanel ─────
+    readonly property bool showWaveforms: root.timelineRoot?.showAudioWaveforms ?? true
+    readonly property int thumbnailMode: root.timelineRoot?.thumbnailMode ?? 1 // 0: None, 1: End-to-End, 2: Full Ribbon
+
     // ── Viewport Geometry & Culling ──────────────────────────────
     readonly property real vpLeft: root.timelineRoot ? Number(root.timelineRoot.horizontalOffset || 0) : 0
     readonly property real vpWidth: root.timelineRoot ? Math.max(100, Number(root.timelineRoot.width || 1920) - Number(root.timelineRoot.headerWidth || 220) - Number(root.timelineRoot.paletteStripWidth || 0)) : 1920
     readonly property real vpRight: vpLeft + vpWidth
 
-    // Prune entire clip from scene graph when offscreen
     readonly property bool isClipInView: {
         if (root.isDragging || root.isTrimmingLeft || root.isTrimmingRight)
             return true;
@@ -33,7 +37,6 @@ Item {
     }
     visible: isClipInView
 
-    // Sub-window of this clip that is currently visible in the viewport (relative to root.x)
     readonly property real visClipLeft: Math.max(0, root.vpLeft - root.x - 100)
     readonly property real visClipRight: Math.min(root.width, root.vpRight - root.x + 100)
     readonly property real visClipWidth: Math.max(0, visClipRight - visClipLeft)
@@ -54,7 +57,7 @@ Item {
     }
 
     function ensurePeaks(pixelW, startF, durF) {
-        if (!isAudioTrack || !activeTimelineModel || !clipData || pixelW < 2 || durF < 1)
+        if (!isAudioTrack || !activeTimelineModel || !clipData || !showWaveforms || pixelW < 2 || durF < 1)
             return null;
 
         var targetPx = pixelBucket(pixelW);
@@ -299,237 +302,268 @@ Item {
     }
 
     Rectangle {
+        id: cardContainer
         anchors.fill: parent
         color: root.isLocked ? "#262626" : (root.isAudioTrack ? Qt.rgba(0.486, 0.227, 0.929, 0.28) : Qt.rgba(0.114, 0.365, 0.859, 0.3))
         border.color: (root.isSelected || root.isDragging || root.isTrimmingLeft || root.isTrimmingRight) ? (root.isAudioTrack ? "#A78BFA" : "#3B82F6") : (root.isLocked ? "#383838" : (root.isAudioTrack ? Qt.rgba(0.486, 0.227, 0.929, 0.55) : Qt.rgba(0.114, 0.365, 0.859, 0.5)))
         border.width: 1
         clip: true
 
-        // Viewport-bounded lock pattern (never exceeds 2200px)
-        Canvas {
-            id: lockPatternCanvas
-            x: root.visClipLeft
-            y: 0
-            width: Math.max(2, root.visClipWidth)
-            height: parent.height
-            visible: root.isLocked && root.isClipInView && width >= 2
-            opacity: 0.18
-            renderTarget: Canvas.Image
-            z: 5
-            onPaint: {
-                var ctx = getContext("2d");
-                ctx.clearRect(0, 0, width, height);
-                ctx.strokeStyle = "#ffffff";
-                ctx.lineWidth = 1.5;
-                ctx.beginPath();
-                var step = 14;
-                for (var x = -height; x < width + height; x += step) {
-                    ctx.moveTo(x, height);
-                    ctx.lineTo(x + height, 0);
-                }
-                ctx.stroke();
-            }
-            onWidthChanged: requestPaint()
-            onHeightChanged: requestPaint()
-            onXChanged: requestPaint()
-            Component.onCompleted: requestPaint()
-        }
-
-        Image {
-            id: leftThumbnail
+        // ── 1. PINNED FIXED-HEIGHT TITLE HEADER ──────────────────────
+        Rectangle {
+            id: titleHeaderBar
             anchors.left: parent.left
-            anchors.top: parent.top
-            anchors.bottom: parent.bottom
-            anchors.margins: 3
-            width: Math.min(height * 1.77, (parent.width - 20) / 2)
-            fillMode: Image.PreserveAspectCrop
-            visible: !root.isAudioTrack && width > 15 && root.isClipInView
-            opacity: root.isLocked ? 0.4 : 1.0
-            source: (!root.isAudioTrack && root.clipData) ? ("image://thumbnails/" + root.clipData.assetId + "?time=" + (root.committedSourceInFrame / 30.0) + "&width=160") : ""
-            asynchronous: true
-            cache: true
-            onStatusChanged: {
-                if (leftThumbnail.status === Image.Error)
-                    source = "";
-            }
-        }
-
-        Image {
-            id: rightThumbnail
             anchors.right: parent.right
             anchors.top: parent.top
-            anchors.bottom: parent.bottom
-            anchors.margins: 3
-            width: Math.min(height * 1.77, (parent.width - 20) / 2)
-            fillMode: Image.PreserveAspectCrop
-            visible: !root.isAudioTrack && width > 15 && parent.width > (width * 2 + 30) && root.isClipInView
-            opacity: root.isLocked ? 0.4 : 1.0
-            source: (!root.isAudioTrack && root.clipData) ? ("image://thumbnails/" + root.clipData.assetId + "?time=" + ((root.committedSourceInFrame + root.committedDurationFrames) / 30.0) + "&width=160") : ""
-            asynchronous: true
-            cache: true
-            onStatusChanged: {
-                if (rightThumbnail.status === Image.Error)
-                    source = "";
+            height: 20
+            color: root.isLocked ? "#2d2d2d" : (root.isAudioTrack ? "#6D28D9" : "#1D4ED8")
+            z: 25
+
+            Rectangle {
+                anchors.left: parent.left
+                anchors.right: parent.right
+                anchors.bottom: parent.bottom
+                height: 1
+                color: Qt.rgba(0, 0, 0, 0.35)
+            }
+
+            RowLayout {
+                anchors.fill: parent
+                anchors.leftMargin: 6
+                anchors.rightMargin: 6
+                spacing: 4
+
+                Text {
+                    id: headerText
+                    Layout.fillWidth: true
+                    text: root.clipData?.name ?? "Clip"
+                    color: root.isLocked ? "#a3a3a3" : "#ffffff"
+                    font.pixelSize: 10
+                    font.bold: true
+                    elide: Text.ElideRight
+                    verticalAlignment: Text.AlignVCenter
+                }
+
+                Image {
+                    visible: root.isLinked
+                    source: "qrc:/assets/icons/link.svg"
+                    sourceSize: Qt.size(10, 10)
+                    Layout.preferredWidth: 10
+                    Layout.preferredHeight: 10
+                    opacity: root.isLocked ? 0.45 : 0.85
+                    Layout.alignment: Qt.AlignVCenter
+                }
+
+                Image {
+                    visible: root.isLocked
+                    source: "qrc:/assets/icons/lock.svg"
+                    sourceSize: Qt.size(10, 10)
+                    Layout.preferredWidth: 10
+                    Layout.preferredHeight: 10
+                    opacity: 0.9
+                    Layout.alignment: Qt.AlignVCenter
+                }
             }
         }
 
-        // ── Viewport-Culled Waveform Canvas ──────────────────────────
-        // x and width follow ONLY the visible viewport window, bounded to <= 2200px.
-        Canvas {
-            id: waveformCanvas
-            x: root.visClipLeft
-            y: 24
-            width: Math.max(2, root.visClipWidth)
-            height: Math.max(2, parent.height - 28)
-            visible: root.isAudioTrack && root.isClipInView && width >= 2
-            opacity: root.isLocked ? 0.35 : 0.88
-            renderTarget: Canvas.Image
-            z: 8
+        // ── 2. CLIP CONTENT AREA (THUMBNAILS / WAVEFORMS) ───────────
+        Item {
+            id: contentArea
+            anchors.left: parent.left
+            anchors.right: parent.right
+            anchors.top: titleHeaderBar.bottom
+            anchors.bottom: parent.bottom
+            clip: true
 
-            onPaint: {
-                if (!root.isAudioTrack || !root.clipData || width < 2 || height < 2)
-                    return;
-                var ctx = getContext("2d");
-                ctx.clearRect(0, 0, width, height);
-
-                var sourceIn = Number(root.isTrimmingLeft ? root.localSourceInFrame : (root.clipData?.sourceInFrame ?? 0));
-                var totalDur = Number(root.isTrimmingLeft || root.isTrimmingRight ? root.localDurationFrames : (root.clipData?.durationFrames ?? 30));
-
-                // Calculate visible frame slice within source audio
-                var frameOffset = root.visClipLeft / Math.max(0.001, root.zoomFactor);
-                var visibleDurFrames = width / Math.max(0.001, root.zoomFactor);
-
-                var startF = Math.max(0, sourceIn + frameOffset);
-                var durF = Math.min(visibleDurFrames, Math.max(1, totalDur - frameOffset));
-
-                var peaks = root.ensurePeaks(width, startF, durF);
-                if (!peaks || peaks.length === 0)
-                    return;
-
-                var midY = height * 0.5;
-                var amp = midY - 2;
-                var n = peaks.length;
-                var stepX = width / n;
-
-                // Center baseline for silence / low levels
-                ctx.strokeStyle = root.isSelected ? Qt.rgba(0.87, 0.84, 1.0, 0.25) : Qt.rgba(0.77, 0.71, 0.99, 0.2);
-                ctx.lineWidth = 1;
-                ctx.beginPath();
-                ctx.moveTo(0, midY);
-                ctx.lineTo(width, midY);
-                ctx.stroke();
-
-                // Dynamic line width fills gaps when zoomed in
-                ctx.strokeStyle = root.isSelected ? "#DDD6FE" : "#C4B5FD";
-                ctx.lineWidth = Math.max(1, Math.min(3, Math.floor(stepX)));
-                ctx.beginPath();
-                for (var i = 0; i < n; ++i) {
-                    var p = peaks[i];
-                    if (!p)
-                        continue;
-                    var x = Math.floor(i * stepX) + 0.5;
-                    var yTop = midY - (p.max !== undefined ? p.max : 0) * amp;
-                    var yBottom = midY - (p.min !== undefined ? p.min : 0) * amp;
-                    if (Math.abs(yBottom - yTop) < 1.5) {
-                        yTop = midY - 0.75;
-                        yBottom = midY + 0.75;
+            // Lock pattern overlay
+            Canvas {
+                id: lockPatternCanvas
+                x: root.visClipLeft
+                y: 0
+                width: Math.max(2, root.visClipWidth)
+                height: parent.height
+                visible: root.isLocked && root.isClipInView && width >= 2
+                opacity: 0.18
+                renderTarget: Canvas.Image
+                z: 5
+                onPaint: {
+                    var ctx = getContext("2d");
+                    ctx.clearRect(0, 0, width, height);
+                    ctx.strokeStyle = "#ffffff";
+                    ctx.lineWidth = 1.5;
+                    ctx.beginPath();
+                    var step = 14;
+                    for (var x = -height; x < width + height; x += step) {
+                        ctx.moveTo(x, height);
+                        ctx.lineTo(x + height, 0);
                     }
-                    ctx.moveTo(x, yTop);
-                    ctx.lineTo(x, yBottom);
+                    ctx.stroke();
                 }
-                ctx.stroke();
+                onWidthChanged: requestPaint()
+                onHeightChanged: requestPaint()
+                onXChanged: requestPaint()
+                Component.onCompleted: requestPaint()
             }
 
-            onWidthChanged: requestPaint()
-            onHeightChanged: requestPaint()
-            onXChanged: requestPaint()
+            // Mode 1: End-to-End Thumbnails (Start & End)
+            Item {
+                anchors.fill: parent
+                visible: !root.isAudioTrack && root.thumbnailMode === 1 && root.isClipInView
 
-            Connections {
-                target: root
-                function onZoomFactorChanged() {
-                    root.invalidatePeaks();
-                    waveformCanvas.requestPaint();
+                Image {
+                    id: leftThumbnail
+                    anchors.left: parent.left
+                    anchors.top: parent.top
+                    anchors.bottom: parent.bottom
+                    anchors.margins: 2
+                    width: Math.min(height * 1.77, (parent.width - 8) / 2)
+                    fillMode: Image.PreserveAspectCrop
+                    visible: width > 15
+                    opacity: root.isLocked ? 0.4 : 1.0
+                    source: (visible && root.clipData) ? ("image://thumbnails/" + root.clipData.assetId + "?time=" + (root.committedSourceInFrame / 30.0) + "&width=160") : ""
+                    asynchronous: true
+                    cache: true
+                    onStatusChanged: if (leftThumbnail.status === Image.Error)
+                        source = ""
                 }
-                function onLocalSourceInFrameChanged() {
-                    root.invalidatePeaks();
-                    waveformCanvas.requestPaint();
-                }
-                function onLocalDurationFramesChanged() {
-                    root.invalidatePeaks();
-                    waveformCanvas.requestPaint();
+
+                Image {
+                    id: rightThumbnail
+                    anchors.right: parent.right
+                    anchors.top: parent.top
+                    anchors.bottom: parent.bottom
+                    anchors.margins: 2
+                    width: Math.min(height * 1.77, (parent.width - 8) / 2)
+                    fillMode: Image.PreserveAspectCrop
+                    visible: width > 15 && parent.width > (width * 2 + 10)
+                    opacity: root.isLocked ? 0.4 : 1.0
+                    source: (visible && root.clipData) ? ("image://thumbnails/" + root.clipData.assetId + "?time=" + ((root.committedSourceInFrame + root.committedDurationFrames) / 30.0) + "&width=160") : ""
+                    asynchronous: true
+                    cache: true
+                    onStatusChanged: if (rightThumbnail.status === Image.Error)
+                        source = ""
                 }
             }
-        }
 
-        Rectangle {
-            id: lockBadge
-            visible: root.isLocked
-            anchors.right: parent.right
-            anchors.top: parent.top
-            anchors.margins: 4
-            width: 18
-            height: 18
-            radius: 3
-            color: "#CC181818"
-            border.color: "#444444"
-            border.width: 1
-            z: 30
-            Image {
-                anchors.centerIn: parent
-                width: 11
-                height: 11
-                source: "qrc:/assets/icons/lock.svg"
-                opacity: 0.9
+            // Mode 2: Full Continuous Thumbnail Ribbon
+            Row {
+                anchors.fill: parent
+                anchors.margins: 2
+                spacing: 1
+                visible: !root.isAudioTrack && root.thumbnailMode === 2 && root.isClipInView
+                clip: true
+
+                readonly property real thumbW: Math.max(16, contentArea.height * 1.77)
+                readonly property int count: Math.ceil(parent.width / (thumbW + spacing))
+
+                Repeater {
+                    model: parent.visible ? parent.count : 0
+
+                    Image {
+                        width: parent.thumbW
+                        height: contentArea.height - 4
+                        fillMode: Image.PreserveAspectCrop
+                        opacity: root.isLocked ? 0.4 : 1.0
+                        source: root.clipData ? ("image://thumbnails/" + root.clipData.assetId + "?time=" + ((root.committedSourceInFrame + (index * (root.committedDurationFrames / Math.max(1, parent.count)))) / 30.0) + "&width=160") : ""
+                        asynchronous: true
+                        cache: true
+                    }
+                }
             }
-        }
 
-        // Sticky Name Pill (floats to visible viewport edge on long / zoomed clips)
-        Rectangle {
-            id: namePill
-            x: Math.max(6, Math.min(parent.width - width - 6, root.visClipLeft + 6))
-            anchors.top: parent.top
-            anchors.topMargin: 6
-            height: 20
-            width: Math.min(parent.width - (root.isLocked ? 32 : 12), nameText.implicitWidth + 16)
-            color: root.isLocked ? "#383838" : (root.isAudioTrack ? "#7C3AED" : "#1D5DDB")
-            radius: 4
-            z: 20
-            Text {
-                id: nameText
-                anchors.centerIn: parent
-                text: root.clipData?.name ?? "Clip"
-                color: root.isLocked ? "#b0b0b0" : "#ffffff"
-                font.pixelSize: 11
-                font.bold: true
-                elide: Text.ElideRight
-                width: parent.width - 12
-            }
-        }
+            // ── Viewport-Culled Waveform Canvas ──────────────────────
+            Canvas {
+                id: waveformCanvas
+                x: root.visClipLeft
+                y: 0
+                width: Math.max(2, root.visClipWidth)
+                height: Math.max(2, parent.height)
+                visible: root.isAudioTrack && root.showWaveforms && root.isClipInView && width >= 2
+                opacity: root.isLocked ? 0.35 : 0.88
+                renderTarget: Canvas.Image
+                z: 8
 
-        Rectangle {
-            id: linkBadge
-            visible: root.isLinked
-            anchors.left: namePill.right
-            anchors.leftMargin: 4
-            anchors.top: parent.top
-            anchors.topMargin: 6
-            height: 20
-            width: 20
-            radius: 4
-            color: root.isLocked ? "#2d2d2d" : "#181818"
-            border.color: root.isLocked ? "#3a3a3a" : "#303030"
-            border.width: 1
-            z: 20
-            Image {
-                anchors.centerIn: parent
-                width: 11
-                height: 11
-                source: "qrc:/assets/icons/link.svg"
-                opacity: root.isLocked ? 0.5 : 0.9
+                onPaint: {
+                    if (!root.isAudioTrack || !root.clipData || !root.showWaveforms || width < 2 || height < 2)
+                        return;
+                    var ctx = getContext("2d");
+                    ctx.clearRect(0, 0, width, height);
+
+                    var sourceIn = Number(root.isTrimmingLeft ? root.localSourceInFrame : (root.clipData?.sourceInFrame ?? 0));
+                    var totalDur = Number(root.isTrimmingLeft || root.isTrimmingRight ? root.localDurationFrames : (root.clipData?.durationFrames ?? 30));
+
+                    var frameOffset = root.visClipLeft / Math.max(0.001, root.zoomFactor);
+                    var visibleDurFrames = width / Math.max(0.001, root.zoomFactor);
+
+                    var startF = Math.max(0, sourceIn + frameOffset);
+                    var durF = Math.min(visibleDurFrames, Math.max(1, totalDur - frameOffset));
+
+                    var peaks = root.ensurePeaks(width, startF, durF);
+                    if (!peaks || peaks.length === 0)
+                        return;
+
+                    var midY = height * 0.5;
+                    var amp = midY - 2;
+                    var n = peaks.length;
+                    var stepX = width / n;
+
+                    // Center baseline
+                    ctx.strokeStyle = root.isSelected ? Qt.rgba(0.87, 0.84, 1.0, 0.25) : Qt.rgba(0.77, 0.71, 0.99, 0.2);
+                    ctx.lineWidth = 1;
+                    ctx.beginPath();
+                    ctx.moveTo(0, midY);
+                    ctx.lineTo(width, midY);
+                    ctx.stroke();
+
+                    // Waveform lines with dynamic thickness
+                    ctx.strokeStyle = root.isSelected ? "#DDD6FE" : "#C4B5FD";
+                    ctx.lineWidth = Math.max(1, Math.min(3, Math.floor(stepX)));
+                    ctx.beginPath();
+                    for (var i = 0; i < n; ++i) {
+                        var p = peaks[i];
+                        if (!p)
+                            continue;
+                        var x = Math.floor(i * stepX) + 0.5;
+                        var yTop = midY - (p.max !== undefined ? p.max : 0) * amp;
+                        var yBottom = midY - (p.min !== undefined ? p.min : 0) * amp;
+                        if (Math.abs(yBottom - yTop) < 1.5) {
+                            yTop = midY - 0.75;
+                            yBottom = midY + 0.75;
+                        }
+                        ctx.moveTo(x, yTop);
+                        ctx.lineTo(x, yBottom);
+                    }
+                    ctx.stroke();
+                }
+
+                onWidthChanged: requestPaint()
+                onHeightChanged: requestPaint()
+                onXChanged: requestPaint()
+
+                Connections {
+                    target: root
+                    function onZoomFactorChanged() {
+                        root.invalidatePeaks();
+                        waveformCanvas.requestPaint();
+                    }
+                    function onLocalSourceInFrameChanged() {
+                        root.invalidatePeaks();
+                        waveformCanvas.requestPaint();
+                    }
+                    function onLocalDurationFramesChanged() {
+                        root.invalidatePeaks();
+                        waveformCanvas.requestPaint();
+                    }
+                    function onShowWaveformsChanged() {
+                        if (root.showWaveforms)
+                            waveformCanvas.requestPaint();
+                    }
+                }
             }
         }
     }
 
+    // ── Mouse Area for Moving Clips ──────────────────────────────
     MouseArea {
         id: moveMouse
         anchors.fill: parent
@@ -663,10 +697,11 @@ Item {
         }
     }
 
+    // Left trim handle
     Rectangle {
         id: leftTrim
         visible: !root.isLocked
-        width: 2
+        width: 3
         anchors.left: parent.left
         anchors.top: parent.top
         anchors.bottom: parent.bottom
@@ -740,10 +775,11 @@ Item {
         }
     }
 
+    // Right trim handle
     Rectangle {
         id: rightTrim
         visible: !root.isLocked
-        width: 2
+        width: 3
         anchors.right: parent.right
         anchors.top: parent.top
         anchors.bottom: parent.bottom

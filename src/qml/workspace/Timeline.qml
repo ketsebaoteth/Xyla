@@ -26,6 +26,10 @@ Item {
     property real contentWidth: 3600
     property int cachedMaxFrame: 0
 
+    // Global Clip Display Toggles
+    property bool showAudioWaveforms: true
+    property int thumbnailMode: 1 // 0: None, 1: End-to-End, 2: Full Ribbon
+
     function refreshMaxFrame() {
         if (!root.activeTimelineModel)
             return;
@@ -395,11 +399,8 @@ Item {
 
             RowLayout {
                 anchors.right: parent.right
-                anchors.left: centerControls.right
-                anchors.verticalCenter: parent.verticalCenter
-                anchors.leftMargin: 10
                 anchors.rightMargin: 10
-                layoutDirection: Qt.RightToLeft
+                anchors.verticalCenter: parent.verticalCenter
                 spacing: 6
 
                 XylaIconButton {
@@ -416,6 +417,327 @@ Item {
                         x: rippleSettingsBtn.width - width
                         y: rippleSettingsBtn.height + 6
                         timelineModel: root.activeTimelineModel
+                    }
+                }
+
+                // divider
+                Rectangle {
+                    Layout.preferredWidth: 1
+                    Layout.preferredHeight: 16
+                    Layout.alignment: Qt.AlignVCenter
+                    color: "#2d2d2d"
+                }
+
+                Rectangle {
+                    id: waveformBtnWrapper
+                    Layout.preferredHeight: 28
+                    Layout.preferredWidth: 32
+                    radius: 6
+                    color: "transparent"
+                    border.color: "#2d2d2d"
+                    border.width: 1
+
+                    Rectangle {
+                        anchors.fill: parent
+                        anchors.margins: 2
+                        radius: 4
+                        color: {
+                            if (root.showAudioWaveforms)
+                                return waveMouse.containsMouse ? "#1645BF" : "#11389F";
+                            return waveMouse.containsMouse ? "#222222" : "transparent";
+                        }
+                        border.color: root.showAudioWaveforms ? "#2555D3" : "transparent"
+                        border.width: root.showAudioWaveforms ? 1 : 0
+
+                        Behavior on color {
+                            ColorAnimation {
+                                duration: 120
+                            }
+                        }
+                        Behavior on border.color {
+                            ColorAnimation {
+                                duration: 120
+                            }
+                        }
+
+                        Image {
+                            anchors.centerIn: parent
+                            width: 14
+                            height: 14
+                            source: "qrc:/assets/icons/volume.svg"
+                            sourceSize: Qt.size(14, 14)
+                            opacity: root.showAudioWaveforms ? 1.0 : (waveMouse.containsMouse ? 0.75 : 0.45)
+                        }
+                    }
+                    XylaToolTip {
+                        visible: waveMouse.containsMouse
+                        text: root.showAudioWaveforms ? "Audio waveforms enabled" : "Audio waveforms disabled"
+                        position: "bottom"
+                    }
+
+                    MouseArea {
+                        id: waveMouse
+                        anchors.fill: parent
+                        hoverEnabled: true
+                        cursorShape: Qt.PointingHandCursor
+                        onClicked: root.showAudioWaveforms = !root.showAudioWaveforms
+                    }
+                }
+
+                // ── VIDEO THUMBNAIL DUAL-ACTION BUTTON ──────────────────────
+                Rectangle {
+                    id: thumbComboBtn
+                    Layout.preferredHeight: 28
+                    Layout.preferredWidth: 62
+                    radius: 6
+                    color: "transparent"
+                    border.color: "#2d2d2d"
+                    border.width: 1
+
+                    RowLayout {
+                        anchors.fill: parent
+                        anchors.margins: 2
+                        spacing: 2
+
+                        // Left: Toggle Active/None Button
+                        Rectangle {
+                            id: thumbActionBtn
+                            Layout.fillHeight: true
+                            Layout.preferredWidth: 30
+                            radius: 4
+                            color: {
+                                if (root.thumbnailMode > 0)
+                                    return thumbActionMouse.containsMouse ? "#1645BF" : "#11389F";
+                                return thumbActionMouse.containsMouse ? "#222222" : "transparent";
+                            }
+                            border.color: root.thumbnailMode > 0 ? "#2555D3" : "transparent"
+                            border.width: root.thumbnailMode > 0 ? 1 : 0
+
+                            Behavior on color {
+                                ColorAnimation {
+                                    duration: 120
+                                }
+                            }
+                            Behavior on border.color {
+                                ColorAnimation {
+                                    duration: 120
+                                }
+                            }
+
+                            Image {
+                                anchors.centerIn: parent
+                                width: 14
+                                height: 14
+                                source: "qrc:/assets/icons/photo.svg"
+                                sourceSize: Qt.size(14, 14)
+                                opacity: root.thumbnailMode > 0 ? 1.0 : (thumbActionMouse.containsMouse ? 0.75 : 0.45)
+                            }
+
+                            XylaToolTip {
+                                visible: thumbActionMouse.containsMouse && !thumbPopup.visible
+                                text: root.thumbnailMode > 0 ? "Thumbnails active (Click to turn off)" : "Thumbnails off (Click to enable)"
+                                position: "bottom"
+                            }
+
+                            MouseArea {
+                                id: thumbActionMouse
+                                anchors.fill: parent
+                                hoverEnabled: true
+                                cursorShape: Qt.PointingHandCursor
+                                onClicked: {
+                                    if (root.thumbnailMode > 0)
+                                        root.thumbnailMode = 0;
+                                    else
+                                        root.thumbnailMode = 1;
+                                }
+                            }
+                        }
+
+                        // Divider
+                        Rectangle {
+                            Layout.preferredWidth: 1
+                            Layout.preferredHeight: 14
+                            Layout.alignment: Qt.AlignVCenter
+                            color: "#2d2d2d"
+                        }
+
+                        // Right: Chevron Dropdown Trigger
+                        Rectangle {
+                            id: thumbChevronBtn
+                            Layout.fillHeight: true
+                            Layout.fillWidth: true
+                            radius: 4
+                            color: (thumbChevronMouse.containsMouse || thumbPopup.visible) ? "#202020" : "transparent"
+
+                            Behavior on color {
+                                ColorAnimation {
+                                    duration: 100
+                                }
+                            }
+
+                            Image {
+                                anchors.centerIn: parent
+                                width: 12
+                                height: 12
+                                source: "qrc:/assets/icons/chevron-down.svg"
+                                sourceSize: Qt.size(12, 12)
+                                opacity: (thumbChevronMouse.containsMouse || thumbPopup.visible) ? 0.9 : 0.45
+                                rotation: thumbPopup.visible ? 180 : 0
+
+                                Behavior on rotation {
+                                    NumberAnimation {
+                                        duration: 150
+                                    }
+                                }
+                                Behavior on opacity {
+                                    NumberAnimation {
+                                        duration: 100
+                                    }
+                                }
+                            }
+
+                            MouseArea {
+                                id: thumbChevronMouse
+                                anchors.fill: parent
+                                hoverEnabled: true
+                                cursorShape: Qt.PointingHandCursor
+                                onClicked: {
+                                    if (thumbPopup.visible)
+                                        thumbPopup.close();
+                                    else
+                                        thumbPopup.open();
+                                }
+                            }
+                        }
+                    }
+
+                    // ── Segmented Selector Dropdown Popup ───────────────────
+                    Popup {
+                        id: thumbPopup
+                        x: thumbComboBtn.width - width
+                        y: thumbComboBtn.height + 4
+                        width: 216
+                        height: 76
+                        padding: 8
+                        modal: true
+                        focus: true
+                        closePolicy: Popup.CloseOnEscape | Popup.CloseOnPressOutside
+
+                        background: Rectangle {
+                            color: "#181818"
+                            border.color: "#303030"
+                            border.width: 1
+                            radius: 8
+
+                            layer.enabled: true
+                            layer.effect: MultiEffect {
+                                shadowEnabled: true
+                                shadowColor: "#90000000"
+                                shadowBlur: 0.65
+                                shadowVerticalOffset: 6
+                            }
+                        }
+
+                        contentItem: ColumnLayout {
+                            spacing: 6
+
+                            Text {
+                                text: "Thumbnail Mode"
+                                color: "#888888"
+                                font.pixelSize: 10
+                                font.bold: true
+                            }
+
+                            // Apple-Style Segmented Control
+                            Rectangle {
+                                Layout.fillWidth: true
+                                height: 28
+                                color: "#0d0d0d"
+                                radius: 5
+                                border.color: "#262626"
+                                border.width: 1
+
+                                readonly property var modes: [
+                                    {
+                                        label: "None",
+                                        val: 0
+                                    },
+                                    {
+                                        label: "Ends",
+                                        val: 1
+                                    },
+                                    {
+                                        label: "Full",
+                                        val: 2
+                                    }
+                                ]
+
+                                // Sliding Pill Indicator
+                                Rectangle {
+                                    width: (parent.width - 4) / 3
+                                    height: parent.height - 4
+                                    y: 2
+                                    x: 2 + (root.thumbnailMode * width)
+                                    radius: 3.5
+                                    color: "#11389F"
+                                    border.color: "#2555D3"
+                                    border.width: 1
+
+                                    Behavior on x {
+                                        NumberAnimation {
+                                            duration: 180
+                                            easing.type: Easing.OutQuint
+                                        }
+                                    }
+                                }
+
+                                Row {
+                                    anchors.fill: parent
+                                    anchors.margins: 2
+
+                                    Repeater {
+                                        model: [
+                                            {
+                                                label: "None",
+                                                val: 0
+                                            },
+                                            {
+                                                label: "Ends",
+                                                val: 1
+                                            },
+                                            {
+                                                label: "Full",
+                                                val: 2
+                                            }
+                                        ]
+
+                                        Item {
+                                            width: (parent.width) / 3
+                                            height: parent.height
+
+                                            Text {
+                                                anchors.centerIn: parent
+                                                text: modelData.label
+                                                font.pixelSize: 11
+                                                font.bold: root.thumbnailMode === modelData.val
+                                                color: root.thumbnailMode === modelData.val ? "#ffffff" : (segMouse.containsMouse ? "#cccccc" : "#777777")
+                                            }
+
+                                            MouseArea {
+                                                id: segMouse
+                                                anchors.fill: parent
+                                                hoverEnabled: true
+                                                cursorShape: Qt.PointingHandCursor
+                                                onClicked: {
+                                                    root.thumbnailMode = modelData.val;
+                                                    thumbPopup.close();
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
                     }
                 }
             }
