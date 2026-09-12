@@ -550,4 +550,58 @@ void PasteKeyframesCommand::undo() {
   m_model->markDirty();
   emit m_model->visualFrameInvalidated();
 }
+UpdateKeyframeCommand::UpdateKeyframeCommand(TimelineModel *model,
+                                             std::vector<Record> records,
+                                             const QString &description)
+    : m_model(model), m_records(std::move(records)),
+      m_description(description) {}
+
+void UpdateKeyframeCommand::applyState(const QString &clipId,
+                                       const QString &propId,
+                                       const KeyframeState &from,
+                                       const KeyframeState &to) {
+  if (!m_model)
+    return;
+
+  const auto *desc = anim::findPropertyDescriptor(propId);
+  auto *clip = desc ? m_model->resolveClipForProperty(clipId, *desc)
+                    : m_model->findClip(clipId);
+  if (!clip)
+    return;
+
+  auto applyToProp = [&](anim::AnimProperty *p) {
+    if (!p)
+      return;
+    if (from.relFrame != to.relFrame) {
+      p->removeKeyframe(from.relFrame);
+    }
+    p->setKeyframe(to.relFrame, to.value, to.interpolation, to.bezier);
+  };
+
+  if (propId == "scale" ||
+      (clip->isUniformScale() && (propId == "scaleX" || propId == "scaleY"))) {
+    applyToProp(&clip->transform().scaleX);
+    applyToProp(&clip->transform().scaleY);
+  } else {
+    applyToProp(clip->findAnimProperty(propId));
+  }
+
+  emit m_model->clipPropertiesChanged(clip->clipId());
+  emit m_model->selectedClipDataChanged();
+  m_model->markDirty();
+  emit m_model->visualFrameInvalidated();
+}
+
+void UpdateKeyframeCommand::redo() {
+  for (const auto &rec : m_records) {
+    applyState(rec.clipId, rec.propId, rec.oldState, rec.newState);
+  }
+}
+
+void UpdateKeyframeCommand::undo() {
+  for (const auto &rec : m_records) {
+    // Reverse from newState back to oldState
+    applyState(rec.clipId, rec.propId, rec.newState, rec.oldState);
+  }
+}
 } // namespace xyla

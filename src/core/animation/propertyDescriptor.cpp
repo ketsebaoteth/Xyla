@@ -13,6 +13,10 @@ const std::vector<PropertyDescriptor> &propertyRegistry() {
        PropertyCategory::Transform,
        [](TimelineClip &c) { return &c.transform().posY; }},
 
+      {"scale", "Scale", "Transform", "", "#3B82F6",
+       PropertyCategory::Transform,
+       [](TimelineClip &c) { return &c.transform().scaleX; }},
+
       {"scaleX", "X", "Transform", "Scale", "#3B82F6",
        PropertyCategory::Transform,
        [](TimelineClip &c) { return &c.transform().scaleX; }},

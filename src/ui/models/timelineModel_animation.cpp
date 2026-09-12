@@ -80,16 +80,26 @@ void TimelineModel::toggleKeyframe(const QString &clipId,
   if (!clip)
     return;
 
-  auto *prop = clip->findAnimProperty(propertyId);
-  if (!prop)
-    return;
-
   const int64_t relFrame = frame - clip->startFrame() + clip->sourceInFrame();
+  const float val = currentValue.toFloat();
 
-  if (prop->hasKeyframe(relFrame)) {
-    prop->removeKeyframe(relFrame);
+  auto toggleOnProp = [&](anim::AnimProperty *p) {
+    if (!p)
+      return;
+    if (p->hasKeyframe(relFrame)) {
+      p->removeKeyframe(relFrame);
+    } else {
+      p->setKeyframe(relFrame, val);
+    }
+  };
+
+  if (propertyId == "scale" ||
+      (clip->isUniformScale() &&
+       (propertyId == "scaleX" || propertyId == "scaleY"))) {
+    toggleOnProp(&clip->transform().scaleX);
+    toggleOnProp(&clip->transform().scaleY);
   } else {
-    prop->setKeyframe(relFrame, currentValue.toFloat());
+    toggleOnProp(clip->findAnimProperty(propertyId));
   }
 
   emit clipPropertiesChanged(clip->clipId());
@@ -215,6 +225,7 @@ QVariantList TimelineModel::getClipAnimChannels(const QString &clipId,
   std::vector<TimelineClip *> contextClips;
   contextClips.push_back(primaryClip);
 
+  // Collect linked audio/video companions
   if (!primaryClip->linkGroupId().isEmpty()) {
     for (const auto &track : m_tracks) {
       if (!track)
@@ -246,11 +257,11 @@ QVariantList TimelineModel::getClipAnimChannels(const QString &clipId,
       const anim::PropertyDescriptor *desc = nullptr;
       anim::AnimProperty *prop = nullptr;
       bool animated = false;
+      bool isUnifiedScale = false;
     };
     std::vector<Entry> entries;
     std::unordered_set<QString> animatedParents;
 
-    // Filter properties matching clip kind
     for (const auto &desc : anim::propertyRegistry()) {
       if (kind == TrackKind::Video &&
           desc.category == anim::PropertyCategory::Audio)
@@ -259,21 +270,37 @@ QVariantList TimelineModel::getClipAnimChannels(const QString &clipId,
           desc.category != anim::PropertyCategory::Audio)
         continue;
 
+      // ── UNIFORM SCALE LOGIC ─────────────────────────────────
+      // When Uniform Scale is LOCKED:
+      // Skip scaleY and any pre-existing "scale" descriptor
+      if (clip->isUniformScale()) {
+        if (desc.id == "scaleY" || desc.id == "scale")
+          continue;
+      } else {
+        // When UNLOCKED:
+        // Skip unified "scale" so scaleX and scaleY are independent
+        if (desc.id == "scale")
+          continue;
+      }
+
       anim::AnimProperty *prop = desc.accessor ? desc.accessor(*clip) : nullptr;
       if (!prop)
         continue;
 
       const bool animated = prop->isAnimated();
-      entries.push_back({&desc, prop, animated});
+      const bool isUnified = clip->isUniformScale() && (desc.id == "scaleX");
 
-      if (animated && !desc.parent.isEmpty())
+      entries.push_back({&desc, prop, animated, isUnified});
+
+      // Track animated parent groups (ignore parent if scale is unified)
+      if (animated && !desc.parent.isEmpty() && !isUnified) {
         animatedParents.insert(desc.group + QLatin1Char('|') + desc.parent);
+      }
     }
 
-    // Build the channel info for each animatable track
     for (const Entry &e : entries) {
       const bool show =
-          e.animated ||
+          e.animated || e.isUnifiedScale ||
           (!e.desc->parent.isEmpty() &&
            animatedParents.count(e.desc->group + QLatin1Char('|') +
                                  e.desc->parent) > 0);
@@ -282,13 +309,25 @@ QVariantList TimelineModel::getClipAnimChannels(const QString &clipId,
 
       anim::AnimChannelInfo info;
       info.clipId = clip->clipId();
-      info.id = e.desc->id;
-      info.name = e.desc->name;
-      info.group = e.desc->group;
-      info.parent = e.desc->parent;
-      info.color = e.desc->color;
+
+      if (e.isUnifiedScale) {
+        // Expose as a single, top-level "Scale" channel
+        info.id = QStringLiteral("scale");
+        info.name = QStringLiteral("Scale");
+        info.group = QStringLiteral("Transform");
+        info.parent = QString(); // Direct channel, no collapsible subgroup
+        info.color = e.desc->color;
+      } else {
+        info.id = e.desc->id;
+        info.name = e.desc->name;
+        info.group = e.desc->group;
+        info.parent = e.desc->parent;
+        info.color = e.desc->color;
+      }
+
       info.isAnimated = e.animated;
 
+      // Extract keyframes and Bezier handles
       for (const auto &k : e.prop->keyframes()) {
         const int64_t absFrame = k.frame - srcIn + clipStart;
         info.keyframeFrames.push_back(absFrame);
@@ -306,8 +345,8 @@ QVariantList TimelineModel::getClipAnimChannels(const QString &clipId,
         info.details.push_back(det);
       }
 
+      // Pack into QVariantMap with live channel state
       QVariantMap channelMap = info.toVariantMap();
-
       channelMap[QStringLiteral("isMuted")] = e.prop->isMuted();
       channelMap[QStringLiteral("isLocked")] = e.prop->isLocked();
       channelMap[QStringLiteral("currentValue")] =
@@ -439,28 +478,77 @@ void TimelineModel::updateKeyframe(const QString &clipId,
   if (!clip)
     return;
 
-  auto *prop = clip->findAnimProperty(propertyId);
-  if (!prop)
-    return;
-
   const int64_t oldRel = oldFrame - clip->startFrame() + clip->sourceInFrame();
   const int64_t newRel = newFrame - clip->startFrame() + clip->sourceInFrame();
 
+  auto *prop = clip->findAnimProperty(propertyId);
+  if (!prop && propertyId == "scale") {
+    prop = &clip->transform().scaleX;
+  }
+  if (!prop)
+    return;
+
+  const auto *existingKf = prop->findKeyframe(oldRel);
+  if (!existingKf)
+    return;
+
+  // 1. Snapshot old state
+  UpdateKeyframeCommand::KeyframeState oldState;
+  oldState.relFrame = oldRel;
+  oldState.value = existingKf->value;
+  oldState.interpolation = existingKf->interpolation;
+  oldState.bezier = existingKf->bezier;
+
+  // 2. Prepare new state
   anim::Interpolation it = (interp >= 0)
                                ? static_cast<anim::Interpolation>(interp)
-                               : anim::Interpolation::Bezier;
-
+                               : existingKf->interpolation;
   anim::BezierHandles bz{.outX = outX, .outY = outY, .inX = inX, .inY = inY};
 
-  if (oldRel != newRel) {
-    prop->removeKeyframe(oldRel);
-  }
-  prop->setKeyframe(newRel, newValue, it, bz);
+  UpdateKeyframeCommand::KeyframeState newState;
+  newState.relFrame = newRel;
+  newState.value = newValue;
+  newState.interpolation = it;
+  newState.bezier = bz;
 
-  emit clipPropertiesChanged(clip->clipId());
-  emit selectedClipDataChanged();
-  markDirty();
-  emit visualFrameInvalidated();
+  // Don't push if nothing changed
+  if (oldState.relFrame == newState.relFrame &&
+      qFuzzyCompare(oldState.value, newState.value) &&
+      oldState.interpolation == newState.interpolation &&
+      qFuzzyCompare(oldState.bezier.inX, newState.bezier.inX) &&
+      qFuzzyCompare(oldState.bezier.inY, newState.bezier.inY) &&
+      qFuzzyCompare(oldState.bezier.outX, newState.bezier.outX) &&
+      qFuzzyCompare(oldState.bezier.outY, newState.bezier.outY)) {
+    return;
+  }
+
+  std::vector<UpdateKeyframeCommand::Record> records;
+
+  const bool isScaleLocked =
+      (propertyId == "scale") ||
+      (clip->isUniformScale() &&
+       (propertyId == "scaleX" || propertyId == "scaleY"));
+
+  if (isScaleLocked) {
+    records.push_back({clip->clipId(), "scaleX", oldState, newState});
+    records.push_back({clip->clipId(), "scaleY", oldState, newState});
+  } else {
+    records.push_back({clip->clipId(), propertyId, oldState, newState});
+  }
+
+  QString descText =
+      (oldRel == newRel && qFuzzyCompare(oldState.value, newState.value))
+          ? "Adjust Bezier Handles"
+          : "Edit Keyframe";
+
+  if (m_undoStack) {
+    m_undoStack->push(std::make_unique<UpdateKeyframeCommand>(
+        this, std::move(records), descText));
+  } else {
+    auto cmd = std::make_unique<UpdateKeyframeCommand>(this, std::move(records),
+                                                       descText);
+    cmd->redo();
+  }
 }
 
 void TimelineModel::pasteKeyframes(
@@ -528,5 +616,24 @@ void TimelineModel::pasteKeyframes(
         this, std::move(pastedRecords), std::move(overwrittenRecords));
     cmd->redo();
   }
+}
+void TimelineModel::setClipUniformScale(const QString &clipId, bool uniform) {
+  auto *clip = resolveVideoClip(clipId);
+  if (!clip)
+    clip = findClip(clipId);
+  if (!clip || clip->isUniformScale() == uniform)
+    return;
+
+  clip->setUniformScale(uniform);
+
+  if (uniform) {
+    // When locking: clone scaleX keyframes and static value onto scaleY
+    clip->transform().scaleY = clip->transform().scaleX;
+  }
+
+  emit clipPropertiesChanged(clip->clipId());
+  emit selectedClipDataChanged();
+  markDirty();
+  emit visualFrameInvalidated();
 }
 } // namespace xyla

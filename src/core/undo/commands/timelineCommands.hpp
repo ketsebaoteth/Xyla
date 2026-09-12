@@ -337,4 +337,36 @@ private:
   std::vector<KeyRecord> m_pastedKeys;
   std::vector<KeyRecord> m_overwrittenKeys;
 };
+
+class UpdateKeyframeCommand : public XylaCommand {
+public:
+  struct KeyframeState {
+    int64_t relFrame{0};
+    float value{0.0f};
+    anim::Interpolation interpolation{anim::Interpolation::Linear};
+    anim::BezierHandles bezier{};
+  };
+
+  struct Record {
+    QString clipId;
+    QString propId;
+    KeyframeState oldState;
+    KeyframeState newState;
+  };
+
+  UpdateKeyframeCommand(TimelineModel *model, std::vector<Record> records,
+                        const QString &description = "Adjust Keyframe");
+
+  void redo() override;
+  void undo() override;
+  QString text() const override { return m_description; }
+
+private:
+  void applyState(const QString &clipId, const QString &propId,
+                  const KeyframeState &from, const KeyframeState &to);
+
+  TimelineModel *m_model{nullptr};
+  std::vector<Record> m_records;
+  QString m_description;
+};
 } // namespace xyla

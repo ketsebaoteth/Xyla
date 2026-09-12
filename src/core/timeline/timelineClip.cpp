@@ -77,6 +77,7 @@ QJsonObject TimelineClip::serialize() const {
   obj["isLocked"] = m_isLocked;
   obj["linkGroupId"] = m_linkGroupId;
   obj["blendMode"] = m_blendMode;
+  obj["uniformScale"] = m_uniformScale;
 
   QJsonObject xformObj;
   xformObj["posX"] = serializeAnimProperty(m_transform.posX);
@@ -150,6 +151,7 @@ TimelineClip TimelineClip::deserialize(const QJsonObject &obj) {
   clip.setLocked(obj.value("isLocked").toBool(false));
   clip.setLinkGroupId(obj.value("linkGroupId").toString());
   clip.setBlendMode(obj.value("blendMode").toInt(0));
+  clip.setUniformScale(obj.value("uniformScale").toBool(true));
 
   if (obj.contains("transform") && obj["transform"].isObject()) {
     QJsonObject xformObj = obj["transform"].toObject();
@@ -256,6 +258,7 @@ QVariantMap TimelineClip::toVariantMap() const {
   map["isLocked"] = m_isLocked;
   map["linkGroupId"] = m_linkGroupId;
   map["blendMode"] = m_blendMode;
+  map["uniformScale"] = m_uniformScale;
 
   QVariantMap xform;
   xform["positionX"] = static_cast<double>(m_transform.posX.staticValue());
@@ -322,9 +325,16 @@ QVariantMap TimelineClip::pushConstantValues(FrameIndex relativeFrame) const {
   map["position"] = QVariantList{
       static_cast<double>(m_transform.posX.evaluate(relativeFrame)),
       static_cast<double>(m_transform.posY.evaluate(relativeFrame))};
-  map["scale"] = QVariantList{
-      static_cast<double>(m_transform.scaleX.evaluate(relativeFrame)),
-      static_cast<double>(m_transform.scaleY.evaluate(relativeFrame))};
+
+  // When uniform scale is on, force Y to match X so the shader never receives
+  // mismatched values
+  double sx = static_cast<double>(m_transform.scaleX.evaluate(relativeFrame));
+  double sy =
+      m_uniformScale
+          ? sx
+          : static_cast<double>(m_transform.scaleY.evaluate(relativeFrame));
+
+  map["scale"] = QVariantList{sx, sy};
   map["anchor"] = QVariantList{0.0, 0.0};
   map["rotation"] = m_transform.rotation.evaluate(relativeFrame);
   map["opacity"] = m_transform.opacity.evaluate(relativeFrame);
@@ -363,6 +373,10 @@ QVariantMap TimelineClip::pushConstantValues(FrameIndex relativeFrame) const {
 }
 
 anim::AnimProperty *TimelineClip::findAnimProperty(const QString &key) {
+  // accessed on uniform scale scale redirect to scaleX
+  if (key == "scale") {
+    return &m_transform.scaleX;
+  }
   const anim::PropertyDescriptor *desc = anim::findPropertyDescriptor(key);
   if (!desc || !desc->accessor)
     return nullptr;

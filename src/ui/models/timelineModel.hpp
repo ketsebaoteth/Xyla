@@ -336,6 +336,7 @@ public:
                                  int64_t deltaFrames);
   Q_INVOKABLE QVariantList getClipAnimChannels(const QString &clipId,
                                                int64_t currentFrame) const;
+  Q_INVOKABLE void setClipUniformScale(const QString &clipId, bool uniform);
   void setPlaybackManagerP(PlaybackManager *playbackManagerP) {
     m_playbackManager = playbackManagerP;
   }

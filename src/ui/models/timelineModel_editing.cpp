@@ -910,8 +910,9 @@ void TimelineModel::updateClipTransformProperty(const QString &clipId,
   if (clipId.isEmpty())
     return;
 
-  // Resolve to the actual video clip
   auto *clip = resolveVideoClip(clipId);
+  if (!clip)
+    clip = findClip(clipId);
   if (!clip)
     return;
 
@@ -921,23 +922,30 @@ void TimelineModel::updateClipTransformProperty(const QString &clipId,
   if (key == "blendMode") {
     clip->setBlendMode(value.toInt());
   } else {
-    auto *prop = clip->findAnimProperty(key);
-    if (prop) {
-      int64_t relFrame =
-          currentTimelineFrame - clip->startFrame() + clip->sourceInFrame();
-      float val = value.toFloat();
-      if (key == "opacity") {
-        val = std::clamp(val, 0.0f, 1.0f);
-      }
+    int64_t relFrame =
+        currentTimelineFrame - clip->startFrame() + clip->sourceInFrame();
+    float val = value.toFloat();
+    if (key == "opacity") {
+      val = std::clamp(val, 0.0f, 1.0f);
+    }
 
-      if (prop->isAnimated()) {
-        prop->setKeyframe(relFrame, val);
-        // qDebug() << "[KEYFRAME STORED ON VIDEO]" << clip->clipId()
-        //          << "Key:" << key << "relFrame:" << relFrame << "Val:" << val;
+    auto applyVal = [&](anim::AnimProperty &prop) {
+      if (prop.isAnimated()) {
+        prop.setKeyframe(relFrame, val);
       } else {
-        prop->setStaticValue(val);
-        // qDebug() << "[STATIC STORED ON VIDEO]" << clip->clipId()
-        //          << "Key:" << key << "Val:" << val;
+        prop.setStaticValue(val);
+      }
+    };
+
+    // When scale is uniform, update both scaleX and scaleY together
+    if (key == "scale" ||
+        (clip->isUniformScale() && (key == "scaleX" || key == "scaleY"))) {
+      applyVal(clip->transform().scaleX);
+      applyVal(clip->transform().scaleY);
+    } else {
+      auto *prop = clip->findAnimProperty(key);
+      if (prop) {
+        applyVal(*prop);
       }
     }
   }

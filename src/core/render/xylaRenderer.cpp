@@ -1257,12 +1257,6 @@ void XylaRenderer::updatePushConstants(VkCommandBuffer cmdBuffer,
       }
 
       if (parsed) {
-        // Prevent accidental (0,0) scale collapse
-        if (m.propertyKey.contains("scale", Qt::CaseInsensitive) &&
-            (v[0] == 0.0f && v[1] == 0.0f)) {
-          v[0] = 1.0f;
-          v[1] = 1.0f;
-        }
         std::memcpy(dest, v, sizeof(v));
       }
       break;

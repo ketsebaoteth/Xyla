@@ -34,10 +34,24 @@ Item {
     property real clipPosY: 0.0
     property real clipScaleX: 1.0
     property real clipScaleY: 1.0
-    property bool uniformScale: true
+    property bool uniformScale: activeClipData ? (activeClipData.uniformScale ?? true) : true
     property real clipRotation: 0.0
     property real clipOpacity: 1.0
     property int clipBlendMode: 0
+
+    // Calls C++ to toggle uniform scale on the video clip
+    function toggleUniformScale() {
+        if (!activeTimelineModel)
+            return;
+        const targetId = videoClipId !== "" ? videoClipId : activeClipId;
+        if (targetId === "")
+            return;
+
+        // Flip local state immediately so Y un-grays without waiting for signals
+        var nextState = !uniformScale;
+        uniformScale = nextState;
+        activeTimelineModel.setClipUniformScale(targetId, nextState);
+    }
 
     property real clipVolume: 1.0
     property real clipPan: 0.0
@@ -76,7 +90,6 @@ Item {
             if (cId === primaryId)
                 continue;
 
-            const cData = activeTimelineModel.findClip ? null : null;
             for (let t = 0; t < activeTimelineModel.trackCount; ++t) {
                 const clipsOnTrack = activeTimelineModel.getClipsForTrack(t);
                 for (let k = 0; k < clipsOnTrack.length; ++k) {
@@ -111,21 +124,17 @@ Item {
             clipRotation = activeTimelineModel.getClipEvaluatedProperty(vId, "rotation", currentPlayheadFrame);
             clipOpacity = activeTimelineModel.getClipEvaluatedProperty(vId, "opacity", currentPlayheadFrame);
 
+            // Sync uniformScale from C++ data
+            if (activeClipData && activeClipData.uniformScale !== undefined) {
+                uniformScale = activeClipData.uniformScale;
+            }
+
             posXKeyed = activeTimelineModel.hasKeyframe(vId, "positionX", currentPlayheadFrame);
             posYKeyed = activeTimelineModel.hasKeyframe(vId, "positionY", currentPlayheadFrame);
             scaleXKeyed = activeTimelineModel.hasKeyframe(vId, "scaleX", currentPlayheadFrame);
             scaleYKeyed = activeTimelineModel.hasKeyframe(vId, "scaleY", currentPlayheadFrame);
             rotationKeyed = activeTimelineModel.hasKeyframe(vId, "rotation", currentPlayheadFrame);
             opacityKeyed = activeTimelineModel.hasKeyframe(vId, "opacity", currentPlayheadFrame);
-        }
-
-        const aId = audioClipId !== "" ? audioClipId : activeClipId;
-        if (hasAudio) {
-            clipVolume = activeTimelineModel.getClipEvaluatedProperty(aId, "volume", currentPlayheadFrame);
-            clipPan = activeTimelineModel.getClipEvaluatedProperty(aId, "pan", currentPlayheadFrame);
-
-            volumeKeyed = activeTimelineModel.hasKeyframe(aId, "volume", currentPlayheadFrame);
-            panKeyed = activeTimelineModel.hasKeyframe(aId, "pan", currentPlayheadFrame);
         }
     }
 
@@ -138,15 +147,8 @@ Item {
         if (id === "")
             return;
 
+        // C++ automatically updates scaleY when uniformScale is true
         activeTimelineModel.updateClipTransformProperty(id, key, val);
-
-        if (uniformScale) {
-            if (key === "scaleX") {
-                activeTimelineModel.updateClipTransformProperty(id, "scaleY", val);
-            } else if (key === "scaleY") {
-                activeTimelineModel.updateClipTransformProperty(id, "scaleX", val);
-            }
-        }
 
         keyframeRevision++;
         updateLiveValues();
@@ -167,19 +169,13 @@ Item {
     function togglePropKeyframe(clipId, key, currentVal) {
         if (!activeTimelineModel)
             return;
-        const id = clipId !== "" ? clipId : activeClipId;
+        const id = clipId !== "" ? clipId : (videoClipId !== "" ? videoClipId : activeClipId);
         if (id === "")
             return;
 
+        // C++ automatically toggles both scaleX and scaleY when uniformScale is true.
+        // No duplicate call in QML.
         activeTimelineModel.toggleKeyframe(id, key, currentPlayheadFrame, currentVal);
-
-        if (uniformScale) {
-            if (key === "scaleX") {
-                activeTimelineModel.toggleKeyframe(id, "scaleY", currentPlayheadFrame, currentVal);
-            } else if (key === "scaleY") {
-                activeTimelineModel.toggleKeyframe(id, "scaleX", currentPlayheadFrame, currentVal);
-            }
-        }
 
         keyframeRevision++;
         updateLiveValues();
@@ -598,7 +594,7 @@ Item {
 
                                 onValueCommitted: (key, val) => propRoot.commitTransform(key, val)
                                 onKeyframeToggled: (key, val) => propRoot.togglePropKeyframe(propRoot.videoClipId, key, val)
-                                onUniformScaleToggled: propRoot.uniformScale = !propRoot.uniformScale
+                                onUniformScaleToggled: propRoot.toggleUniformScale()
                             }
                         }
 

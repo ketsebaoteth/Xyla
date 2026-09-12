@@ -17,14 +17,28 @@ Item {
     property string activeClipId: activeTimelineModel ? (activeTimelineModel.selectedClipId || "") : ""
     property var activeClipData: activeTimelineModel ? (activeTimelineModel.selectedClipData || null) : null
     readonly property bool hasClip: activeClipId !== "" && activeClipId !== "null"
+    property bool normalizeCurves: false
 
-    // Persistent storage for custom track colors
+    // Persistent storage for custom track properties
     property var customTrackColors: ({})
+    property var hiddenCurves: ({})          // Curve visibility in graph view
+    property var customTrackMutes: ({})      // Track muting state
+    property var customTrackLocks: ({})      // Track locking state
 
     readonly property int currentPlayheadFrame: activePlaybackManager ? activePlaybackManager.currentFrame : 0
 
     // 0: Dopesheet (Diamonds), 1: Animation / Speed Graph (Curves)
     property int activeViewMode: 0
+
+    // ── Active Tool State ────────────────────────────────────────
+    property string activeTool: "pointer"
+    property int activeToolIndex: 0
+
+    // ── Multi-Target Snapping State ─────────────────────────────
+    property bool snappingEnabled: true
+    property bool snapToFrames: true
+    property bool snapToOtherKeys: true
+    property bool snapToPlayhead: true
 
     property real zoomFactor: 1.0
     property real horizontalOffset: 0.0
@@ -34,39 +48,225 @@ Item {
     property int minHeaderWidth: 140
     property int maxHeaderWidth: 500
 
-    // Track active selection
     property string activePropId: ""
 
     readonly property int graphRulerWidth: 44
     readonly property int effectiveHeaderWidth: headerWidth + (activeViewMode === 1 ? graphRulerWidth : 0)
+
+    HoverHandler {
+        onHoveredChanged: if (hovered && typeof layoutController !== "undefined" && layoutController)
+            layoutController.setActiveDockId("DopesheetPanel")
+    }
 
     property var selectedKeyframes: []
     property var rawChannelsData: []
     property var collapsedNodes: ({})
     property int expansionRevision: 0
 
-    HoverHandler {
-        onHoveredChanged: {
-            if (hovered && typeof layoutController !== "undefined" && layoutController)
-                layoutController.setActiveDockId("DopesheetPanel");
+    // ── Quick-Action Handlers for Tree ───────────────────────────
+    function toggleTrackVisibility(clipId, propId, isSolo, isEnableAll) {
+        var key = (clipId && clipId !== "") ? (clipId + "|" + propId) : propId;
+
+        // 1. Alt + Click: Enable / Show All
+        if (isEnableAll) {
+            dopesheetRoot.hiddenCurves = ({});
+            dopesheetRoot.expansionRevision++;
+            return;
         }
+
+        // 2. Shift + Click: Solo Mode
+        if (isSolo) {
+            var otherVisibleCount = 0;
+            for (var j = 0; j < rawChannelsData.length; ++j) {
+                var otherCh = rawChannelsData[j];
+                if (otherCh.id !== propId) {
+                    var oKey = (otherCh.clipId || dopesheetRoot.activeClipId) + "|" + otherCh.id;
+                    if (!dopesheetRoot.hiddenCurves[otherCh.id] && !dopesheetRoot.hiddenCurves[oKey]) {
+                        otherVisibleCount++;
+                    }
+                }
+            }
+
+            var thisIsVisible = !dopesheetRoot.hiddenCurves[propId] && !dopesheetRoot.hiddenCurves[key];
+            if (otherVisibleCount === 0 && thisIsVisible) {
+                dopesheetRoot.hiddenCurves = ({});
+            } else {
+                var newHidden = {};
+                for (var i = 0; i < rawChannelsData.length; ++i) {
+                    var ch = rawChannelsData[i];
+                    var chClip = ch.clipId || dopesheetRoot.activeClipId;
+                    var chKey = (chClip && chClip !== "") ? (chClip + "|" + ch.id) : ch.id;
+                    if (ch.id !== propId && chKey !== key) {
+                        newHidden[ch.id] = true;
+                        newHidden[chKey] = true;
+                    }
+                }
+                dopesheetRoot.hiddenCurves = newHidden;
+            }
+            dopesheetRoot.expansionRevision++;
+            return;
+        }
+
+        // 3. Normal Click: Toggle individual track
+        var copy = Object.assign({}, dopesheetRoot.hiddenCurves);
+        var curHidden = !!(copy[key] || copy[propId]);
+
+        if (curHidden) {
+            delete copy[key];
+            delete copy[propId];
+        } else {
+            copy[key] = true;
+            copy[propId] = true;
+        }
+
+        dopesheetRoot.hiddenCurves = copy;
+        dopesheetRoot.expansionRevision++;
     }
 
+    function toggleTrackMute(clipId, propId) {
+        var key = (clipId && clipId !== "") ? (clipId + "|" + propId) : propId;
+        var curMuted = !!dopesheetRoot.customTrackMutes[key];
+
+        for (var i = 0; i < rawChannelsData.length; ++i) {
+            if (rawChannelsData[i].id === propId) {
+                if (dopesheetRoot.customTrackMutes[key] === undefined)
+                    curMuted = !!rawChannelsData[i].isMuted;
+                break;
+            }
+        }
+
+        var copy = Object.assign({}, dopesheetRoot.customTrackMutes);
+        copy[key] = !curMuted;
+        copy[propId] = !curMuted;
+        dopesheetRoot.customTrackMutes = copy;
+
+        if (activeTimelineModel) {
+            if (typeof activeTimelineModel.toggleTrackMute === "function") {
+                // Pass single propId to avoid "Too many arguments" warning
+                activeTimelineModel.toggleTrackMute(propId);
+            } else if (typeof activeTimelineModel.setTrackMuted === "function") {
+                if (activeTimelineModel.setTrackMuted.length === 2) {
+                    activeTimelineModel.setTrackMuted(propId, !curMuted);
+                } else {
+                    activeTimelineModel.setTrackMuted(clipId, propId, !curMuted);
+                }
+            }
+        }
+        dopesheetRoot.expansionRevision++;
+    }
+
+    function toggleTrackLock(clipId, propId) {
+        var key = (clipId && clipId !== "") ? (clipId + "|" + propId) : propId;
+        var curLocked = !!dopesheetRoot.customTrackLocks[key];
+
+        for (var i = 0; i < rawChannelsData.length; ++i) {
+            if (rawChannelsData[i].id === propId) {
+                if (dopesheetRoot.customTrackLocks[key] === undefined)
+                    curLocked = !!rawChannelsData[i].isLocked;
+                break;
+            }
+        }
+
+        var copy = Object.assign({}, dopesheetRoot.customTrackLocks);
+        copy[key] = !curLocked;
+        copy[propId] = !curLocked;
+        dopesheetRoot.customTrackLocks = copy;
+
+        if (activeTimelineModel) {
+            if (typeof activeTimelineModel.toggleTrackLock === "function") {
+                // Pass single propId to avoid "Too many arguments" warning
+                activeTimelineModel.toggleTrackLock(propId);
+            } else if (typeof activeTimelineModel.setTrackLocked === "function") {
+                if (activeTimelineModel.setTrackLocked.length === 2) {
+                    activeTimelineModel.setTrackLocked(propId, !curLocked);
+                } else {
+                    activeTimelineModel.setTrackLocked(clipId, propId, !curLocked);
+                }
+            }
+        }
+        dopesheetRoot.expansionRevision++;
+    }
+
+    // ── Tool Engines ─────────────────────────────────────────────
     function deleteSelectedKeyframes() {
         if (!activeTimelineModel || selectedKeyframes.length === 0)
             return;
-
         activeTimelineModel.removeKeyframes(selectedKeyframes);
         selectedKeyframes = [];
         refreshChannels();
     }
 
-    readonly property int totalKeyCount: {
-        var count = 0;
-        for (var i = 0; i < rawChannelsData.length; ++i) {
-            count += (rawChannelsData[i].keyframes ? rawChannelsData[i].keyframes.length : 0);
+    function deleteKeyframesBatch(keysToDelete) {
+        if (!activeTimelineModel || !keysToDelete || keysToDelete.length === 0)
+            return;
+
+        if (typeof activeTimelineModel.removeKeyframes === "function") {
+            activeTimelineModel.removeKeyframes(keysToDelete);
+        } else {
+            for (var i = 0; i < keysToDelete.length; ++i) {
+                var k = keysToDelete[i];
+                if (typeof activeTimelineModel.deleteKeyframe === "function") {
+                    activeTimelineModel.deleteKeyframe(k.clipId, k.propId, k.frame);
+                } else if (typeof activeTimelineModel.removeKeyframe === "function") {
+                    activeTimelineModel.removeKeyframe(k.clipId, k.propId, k.frame);
+                }
+            }
         }
-        return count;
+
+        var cur = dopesheetRoot.selectedKeyframes.slice();
+        dopesheetRoot.selectedKeyframes = cur.filter(function (s) {
+            return !keysToDelete.some(function (d) {
+                return (d.propId === s.propId && Math.round(d.frame) === Math.round(s.frame));
+            });
+        });
+        refreshChannels();
+    }
+
+    function commitScaledKeyframes(scaledList) {
+        if (!activeTimelineModel || !scaledList || scaledList.length === 0)
+            return;
+
+        var items = scaledList.slice();
+        items.sort(function (a, b) {
+            return b.newFrame - a.newFrame;
+        });
+
+        for (var i = 0; i < items.length; ++i) {
+            var item = items[i];
+            if (item.oldFrame !== item.newFrame && typeof activeTimelineModel.moveKeyframe === "function") {
+                activeTimelineModel.moveKeyframe(item.clipId, item.propId, item.oldFrame, item.newFrame);
+            }
+        }
+
+        var updatedSel = [];
+        for (var j = 0; j < scaledList.length; ++j) {
+            updatedSel.push({
+                clipId: scaledList[j].clipId,
+                propId: scaledList[j].propId,
+                frame: scaledList[j].newFrame
+            });
+        }
+        dopesheetRoot.selectedKeyframes = updatedSel;
+        refreshChannels();
+    }
+
+    function applyClonedValue(clipId, propId, frame, clonedData) {
+        if (!activeTimelineModel || !clonedData)
+            return;
+
+        var val = clonedData.value;
+        var interp = clonedData.interp !== undefined ? clonedData.interp : 1;
+        var inX = clonedData.inX !== undefined ? clonedData.inX : 0.666;
+        var inY = clonedData.inY !== undefined ? clonedData.inY : 0.0;
+        var outX = clonedData.outX !== undefined ? clonedData.outX : 0.333;
+        var outY = clonedData.outY !== undefined ? clonedData.outY : 0.0;
+
+        if (typeof activeTimelineModel.updateKeyframe === "function") {
+            activeTimelineModel.updateKeyframe(clipId, propId, frame, frame, val, interp, inX, inY, outX, outY);
+        } else if (typeof activeTimelineModel.setKeyframeValue === "function") {
+            activeTimelineModel.setKeyframeValue(clipId, propId, frame, val);
+        }
+        refreshChannels();
     }
 
     readonly property var treeRows: {
@@ -189,6 +389,10 @@ Item {
                         var leafClip = leaf.clipId || subClipId;
                         var assignedLeafColor = dopesheetRoot.customTrackColors[leaf.id] || dopesheetRoot.customTrackColors[leafClip + "|" + leaf.id] || leaf.color || "#3B82F6";
 
+                        var isMutedVal = dopesheetRoot.customTrackMutes[leafClip + "|" + leaf.id] !== undefined ? !!dopesheetRoot.customTrackMutes[leafClip + "|" + leaf.id] : (dopesheetRoot.customTrackMutes[leaf.id] !== undefined ? !!dopesheetRoot.customTrackMutes[leaf.id] : !!leaf.isMuted);
+                        var isLockedVal = dopesheetRoot.customTrackLocks[leafClip + "|" + leaf.id] !== undefined ? !!dopesheetRoot.customTrackLocks[leafClip + "|" + leaf.id] : (dopesheetRoot.customTrackLocks[leaf.id] !== undefined ? !!dopesheetRoot.customTrackLocks[leaf.id] : !!leaf.isLocked);
+                        var isVisVal = dopesheetRoot.hiddenCurves[leafClip + "|" + leaf.id] !== true && dopesheetRoot.hiddenCurves[leaf.id] !== true;
+
                         rows.push({
                             id: leaf.id,
                             clipId: leafClip,
@@ -202,8 +406,9 @@ Item {
                             keyCount: leaf.keyframes ? leaf.keyframes.length : 0,
                             keyframes: leaf.keyframes || [],
                             details: leaf.details || [],
-                            isMuted: !!leaf.isMuted,
-                            isLocked: !!leaf.isLocked
+                            isMuted: isMutedVal,
+                            isLocked: isLockedVal,
+                            isVisibleInGraph: isVisVal
                         });
                     }
                 }
@@ -213,6 +418,10 @@ Item {
                 var sChan = standalone[st];
                 var sClip = sChan.clipId || grpClipId;
                 var assignedStandaloneColor = dopesheetRoot.customTrackColors[sChan.id] || dopesheetRoot.customTrackColors[sClip + "|" + sChan.id] || sChan.color || "#3B82F6";
+
+                var isMutedStand = dopesheetRoot.customTrackMutes[sClip + "|" + sChan.id] !== undefined ? !!dopesheetRoot.customTrackMutes[sClip + "|" + sChan.id] : (dopesheetRoot.customTrackMutes[sChan.id] !== undefined ? !!dopesheetRoot.customTrackMutes[sChan.id] : !!sChan.isMuted);
+                var isLockedStand = dopesheetRoot.customTrackLocks[sClip + "|" + sChan.id] !== undefined ? !!dopesheetRoot.customTrackLocks[sClip + "|" + sChan.id] : (dopesheetRoot.customTrackLocks[sChan.id] !== undefined ? !!dopesheetRoot.customTrackLocks[sChan.id] : !!sChan.isLocked);
+                var isVisStand = dopesheetRoot.hiddenCurves[sClip + "|" + sChan.id] !== true && dopesheetRoot.hiddenCurves[sChan.id] !== true;
 
                 rows.push({
                     id: sChan.id,
@@ -227,8 +436,9 @@ Item {
                     keyCount: sChan.keyframes ? sChan.keyframes.length : 0,
                     keyframes: sChan.keyframes || [],
                     details: sChan.details || [],
-                    isMuted: !!sChan.isMuted,
-                    isLocked: !!sChan.isLocked
+                    isMuted: isMutedStand,
+                    isLocked: isLockedStand,
+                    isVisibleInGraph: isVisStand
                 });
             }
         }
@@ -257,24 +467,20 @@ Item {
 
     Connections {
         target: activeTimelineModel
-
         function onCopyKeyframesRequested() {
             if (contextController && dopesheetRoot) {
                 contextController.copy(activeTimelineModel, dopesheetRoot.selectedKeyframes);
             }
         }
-
         function onPasteKeyframesRequested() {
             if (contextController) {
                 contextController.paste(activeTimelineModel, dopesheetRoot.currentPlayheadFrame);
                 dopesheetRoot.refreshChannels();
             }
         }
-
         function onDeleteSelectedKeyframesRequested() {
             dopesheetRoot.deleteSelectedKeyframes();
         }
-
         function onClipPropertiesChanged(clipId) {
             if (clipId === dopesheetRoot.activeClipId) {
                 dopesheetRoot.refreshChannels();
@@ -282,7 +488,6 @@ Item {
                 dopesheetRoot.refreshChannels();
             }
         }
-
         function onSelectedClipIdChanged() {
             dopesheetRoot.activeClipId = activeTimelineModel.selectedClipId || "";
             dopesheetRoot.activeClipData = activeTimelineModel.selectedClipData || null;
@@ -310,16 +515,176 @@ Item {
         anchors.fill: parent
         spacing: 0
 
+        // Top Toolbar Integration
         DopesheetToolbar {
             id: topToolBar
             activeViewMode: dopesheetRoot.activeViewMode
-            onViewModeChanged: mode => dopesheetRoot.activeViewMode = mode
+            onViewModeChanged: function (mode) {
+                dopesheetRoot.activeViewMode = mode;
+            }
 
-            onExpandAllRequested: {
+            activeToolIndex: dopesheetRoot.activeToolIndex
+            onToolChanged: function (toolId) {
+                dopesheetRoot.activeTool = toolId;
+                var tools = ["pointer", "scale", "color-picker", "pencil-minus"];
+                var idx = tools.indexOf(toolId);
+                if (idx !== -1)
+                    dopesheetRoot.activeToolIndex = idx;
+            }
+
+            snappingEnabled: dopesheetRoot.snappingEnabled
+            snapToFrames: dopesheetRoot.snapToFrames
+            snapToOtherKeys: dopesheetRoot.snapToOtherKeys
+            snapToPlayhead: dopesheetRoot.snapToPlayhead
+
+            onSnappingToggled: function (enabled) {
+                dopesheetRoot.snappingEnabled = enabled;
+            }
+            onSnapModesChanged: function (f, ok, p) {
+                dopesheetRoot.snapToFrames = f;
+                dopesheetRoot.snapToOtherKeys = ok;
+                dopesheetRoot.snapToPlayhead = p;
+            }
+
+            normalizeEnabled: dopesheetRoot.normalizeCurves
+            onNormalizeToggled: function (enabled) {
+                dopesheetRoot.normalizeCurves = enabled;
+            }
+
+            // ── Live Numeric Stats Binding ──────────────────────
+            readonly property var leadKeyData: {
+                if (!dopesheetRoot.selectedKeyframes || dopesheetRoot.selectedKeyframes.length === 0)
+                    return null;
+                var lead = dopesheetRoot.selectedKeyframes[0];
+                for (var r = 0; r < dopesheetRoot.treeRows.length; ++r) {
+                    var row = dopesheetRoot.treeRows[r];
+                    if (row.type !== "channel" || !row.details || row.propId !== lead.propId)
+                        continue;
+                    for (var k = 0; k < row.details.length; ++k) {
+                        var kf = row.details[k];
+                        if (Math.round(kf.frame) === Math.round(lead.frame)) {
+                            return {
+                                frame: kf.frame,
+                                value: Number(kf.value !== undefined ? kf.value : 0),
+                                interp: Number(kf.interp !== undefined ? kf.interp : 1)
+                            };
+                        }
+                    }
+                }
+                return {
+                    frame: lead.frame,
+                    value: 0.0,
+                    interp: 1
+                };
+            }
+
+            hasSelectedKey: dopesheetRoot.selectedKeyframes.length > 0 && leadKeyData !== null
+            selectedKeyTime: leadKeyData ? leadKeyData.frame : 0.0
+            selectedKeyValue: leadKeyData ? leadKeyData.value : 0.0
+            selectedKeyInterp: leadKeyData ? leadKeyData.interp : -1
+
+            // Commit edited Time (Frame)
+            onKeyTimeCommitted: function (newFrame) {
+                if (!activeTimelineModel || dopesheetRoot.selectedKeyframes.length === 0)
+                    return;
+                var primary = dopesheetRoot.selectedKeyframes[0];
+                var targetFrame = Math.max(0, Math.round(newFrame));
+                if (targetFrame === Math.round(primary.frame))
+                    return;
+
+                if (typeof activeTimelineModel.moveKeyframe === "function") {
+                    activeTimelineModel.moveKeyframe(primary.clipId, primary.propId, primary.frame, targetFrame);
+                }
+
+                dopesheetRoot.selectedKeyframes = [
+                    {
+                        clipId: primary.clipId,
+                        propId: primary.propId,
+                        frame: targetFrame
+                    }
+                ];
+                dopesheetRoot.refreshChannels();
+            }
+
+            // Commit edited Value
+            onKeyValueCommitted: function (newVal) {
+                if (!activeTimelineModel || dopesheetRoot.selectedKeyframes.length === 0)
+                    return;
+                var primary = dopesheetRoot.selectedKeyframes[0];
+
+                for (var r = 0; r < dopesheetRoot.treeRows.length; ++r) {
+                    var row = dopesheetRoot.treeRows[r];
+                    if (row.type !== "channel" || !row.details || row.propId !== primary.propId)
+                        continue;
+                    for (var k = 0; k < row.details.length; ++k) {
+                        var kf = row.details[k];
+                        if (Math.round(kf.frame) === Math.round(primary.frame)) {
+                            var curInterp = kf.interp !== undefined ? kf.interp : 1;
+                            var inX = kf.inX !== undefined ? kf.inX : 0.666;
+                            var inY = kf.inY !== undefined ? kf.inY : 0.0;
+                            var outX = kf.outX !== undefined ? kf.outX : 0.333;
+                            var outY = kf.outY !== undefined ? kf.outY : 0.0;
+                            activeTimelineModel.updateKeyframe(row.clipId, row.propId, kf.frame, kf.frame, newVal, curInterp, inX, inY, outX, outY);
+                            break;
+                        }
+                    }
+                }
+                dopesheetRoot.refreshChannels();
+            }
+
+            // Extended Tangents (Spline: 2, Linear: 1, Stepped: 0, Flat: 3, Plateau: 4, Ease: 5)
+            onSetInterpolationRequested: function (interpType) {
+                if (!activeTimelineModel || dopesheetRoot.selectedKeyframes.length === 0)
+                    return;
+
+                for (var r = 0; r < dopesheetRoot.treeRows.length; ++r) {
+                    var row = dopesheetRoot.treeRows[r];
+                    if (row.type !== "channel" || !row.details)
+                        continue;
+                    for (var k = 0; k < row.details.length; ++k) {
+                        var kf = row.details[k];
+                        for (var s = 0; s < dopesheetRoot.selectedKeyframes.length; ++s) {
+                            if (dopesheetRoot.selectedKeyframes[s].propId === row.propId && Math.round(dopesheetRoot.selectedKeyframes[s].frame) === Math.round(kf.frame)) {
+                                var actualInterp = interpType;
+                                var inX = kf.inX !== undefined ? kf.inX : 0.666;
+                                var inY = kf.inY !== undefined ? kf.inY : 0.0;
+                                var outX = kf.outX !== undefined ? kf.outX : 0.333;
+                                var outY = kf.outY !== undefined ? kf.outY : 0.0;
+
+                                if (interpType === 3) { // Flat
+                                    actualInterp = 2;
+                                    inY = 0.0;
+                                    outY = 0.0;
+                                    inX = 0.666;
+                                    outX = 0.333;
+                                } else if (interpType === 4) { // Plateau
+                                    actualInterp = 2;
+                                    inY = 0.0;
+                                    outY = 0.0;
+                                    inX = 0.75;
+                                    outX = 0.25;
+                                } else if (interpType === 5) { // Ease
+                                    actualInterp = 2;
+                                    inX = 0.85;
+                                    inY = 0.0;
+                                    outX = 0.15;
+                                    outY = 0.0;
+                                }
+
+                                activeTimelineModel.updateKeyframe(row.clipId, row.propId, kf.frame, kf.frame, kf.value, actualInterp, inX, inY, outX, outY);
+                                break;
+                            }
+                        }
+                    }
+                }
+                dopesheetRoot.refreshChannels();
+            }
+
+            onExpandAllRequested: function () {
                 dopesheetRoot.collapsedNodes = ({});
                 dopesheetRoot.expansionRevision++;
             }
-            onCollapseAllRequested: {
+            onCollapseAllRequested: function () {
                 var copy = {};
                 for (var i = 0; i < dopesheetRoot.treeRows.length; ++i) {
                     var r = dopesheetRoot.treeRows[i];
@@ -330,7 +695,7 @@ Item {
                 dopesheetRoot.expansionRevision++;
             }
 
-            onSelectAllRequested: {
+            onSelectAllRequested: function () {
                 var all = [];
                 for (var c = 0; c < rawChannelsData.length; ++c) {
                     var ch = rawChannelsData[c];
@@ -344,8 +709,9 @@ Item {
                 }
                 dopesheetRoot.selectedKeyframes = all;
             }
-            onSelectNoneRequested: dopesheetRoot.selectedKeyframes = []
-
+            onSelectNoneRequested: function () {
+                dopesheetRoot.selectedKeyframes = [];
+            }
             onInvertSelectionRequested: {
                 var inverted = [];
                 for (var c = 0; c < rawChannelsData.length; ++c) {
@@ -370,8 +736,7 @@ Item {
                 }
                 dopesheetRoot.selectedKeyframes = inverted;
             }
-
-            onSelectBeforePlayheadRequested: {
+            onSelectBeforePlayheadRequested: function () {
                 var list = [];
                 for (var c = 0; c < rawChannelsData.length; ++c) {
                     var ch = rawChannelsData[c];
@@ -387,8 +752,7 @@ Item {
                 }
                 dopesheetRoot.selectedKeyframes = list;
             }
-
-            onSelectAfterPlayheadRequested: {
+            onSelectAfterPlayheadRequested: function () {
                 var list = [];
                 for (var c = 0; c < rawChannelsData.length; ++c) {
                     var ch = rawChannelsData[c];
@@ -404,10 +768,10 @@ Item {
                 }
                 dopesheetRoot.selectedKeyframes = list;
             }
-
-            onDeleteSelectedRequested: dopesheetRoot.deleteSelectedKeyframes()
-
-            onSnapToPlayheadRequested: {
+            onDeleteSelectedRequested: function () {
+                dopesheetRoot.deleteSelectedKeyframes();
+            }
+            onSnapToPlayheadRequested: function () {
                 if (!activeTimelineModel || selectedKeyframes.length === 0)
                     return;
                 for (var i = 0; i < selectedKeyframes.length; ++i) {
@@ -465,6 +829,16 @@ Item {
                             channelContextMenu.openAt(gx, gy, cId, pId, muted, locked);
                         }
                     }
+
+                    onToggleTrackVisibilityRequested: (cId, pId, isSolo, isEnableAll) => {
+                        dopesheetRoot.toggleTrackVisibility(cId, pId, isSolo, isEnableAll);
+                    }
+                    onToggleTrackMuteRequested: (cId, pId) => {
+                        dopesheetRoot.toggleTrackMute(cId, pId);
+                    }
+                    onToggleTrackLockRequested: (cId, pId) => {
+                        dopesheetRoot.toggleTrackLock(cId, pId);
+                    }
                 }
 
                 StackLayout {
@@ -485,18 +859,25 @@ Item {
                         activePropId: dopesheetRoot.activePropId
                         activeClipId: dopesheetRoot.activeClipId
 
+                        activeTool: dopesheetRoot.activeTool
+
+                        snappingEnabled: dopesheetRoot.snappingEnabled
+                        snapToFrames: dopesheetRoot.snapToFrames
+                        snapToOtherKeys: dopesheetRoot.snapToOtherKeys
+                        snapToPlayhead: dopesheetRoot.snapToPlayhead
+
                         onTrackSelected: (cId, pId) => {
                             if (cId && cId !== "")
                                 dopesheetRoot.activeClipId = cId;
                             dopesheetRoot.activePropId = pId;
                         }
 
-                        // ✅ Marquee batch update: keeps selectedKeyframes perfectly in sync
                         onSelectionBatchUpdated: newSelection => {
                             dopesheetRoot.selectedKeyframes = newSelection;
                         }
 
                         onClearSelectionRequested: dopesheetRoot.selectedKeyframes = []
+
                         onKeyframeSingleSelected: (cId, pId, f) => {
                             dopesheetRoot.selectedKeyframes = [
                                 {
@@ -506,6 +887,7 @@ Item {
                                 }
                             ];
                         }
+
                         onKeyframeSelectionRequested: (cId, pId, f, toggle) => {
                             var copy = dopesheetRoot.selectedKeyframes.slice();
                             for (var i = 0; i < copy.length; ++i) {
@@ -523,6 +905,7 @@ Item {
                             });
                             dopesheetRoot.selectedKeyframes = copy;
                         }
+
                         onMoveKeyframesCommitted: delta => {
                             if (delta === 0 || !activeTimelineModel || selectedKeyframes.length === 0)
                                 return;
@@ -541,6 +924,19 @@ Item {
                             dopesheetRoot.selectedKeyframes = updatedSelection;
                             refreshChannels();
                         }
+
+                        onDeleteKeyframesBatchRequested: function (keysToDelete) {
+                            dopesheetRoot.deleteKeyframesBatch(keysToDelete);
+                        }
+
+                        onScaleKeyframesCommitted: function (scaledList) {
+                            dopesheetRoot.commitScaledKeyframes(scaledList);
+                        }
+
+                        onApplyKeyframeValueRequested: function (clipId, propId, frame, valData) {
+                            dopesheetRoot.applyClonedValue(clipId, propId, frame, valData);
+                        }
+
                         onContextMenuRequested: (gx, gy, cId, pId, f, hasK, muted, locked) => {
                             if (hasK) {
                                 keyframeContextMenu.openAt(gx, gy);
@@ -561,7 +957,19 @@ Item {
                         onHorizontalOffsetChanged: dopesheetRoot.horizontalOffset = horizontalOffset
                         contentWidthFrames: dopesheetRoot.contentWidth
                         selectedKeyframes: dopesheetRoot.selectedKeyframes
+                        normalizeEnabled: dopesheetRoot.normalizeCurves
 
+                        hiddenCurves: dopesheetRoot.hiddenCurves
+
+                        activeChannelId: dopesheetRoot.activePropId
+                        onTrackSelected: (cId, pId) => {
+                            if (cId && cId !== "")
+                                dopesheetRoot.activeClipId = cId;
+                            dopesheetRoot.activePropId = pId;
+                        }
+                        onSelectionChanged: newSelection => {
+                            dopesheetRoot.selectedKeyframes = newSelection;
+                        }
                         onContextMenuRequested: (gx, gy, cId, pId, f, hasK) => {
                             if (hasK) {
                                 keyframeContextMenu.openAt(gx, gy);
@@ -638,7 +1046,7 @@ Item {
         headerWidth: dopesheetRoot.effectiveHeaderWidth
         height: parent.height
         visible: dopesheetRoot.hasClip
-        z: 300
+        z: 200
     }
 
     KeyframeContextMenuController {

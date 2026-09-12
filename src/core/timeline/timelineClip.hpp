@@ -107,6 +107,8 @@ public:
   void setLinkGroupId(QString groupId) noexcept {
     m_linkGroupId = std::move(groupId);
   }
+  [[nodiscard]] bool isUniformScale() const noexcept { return m_uniformScale; }
+  void setUniformScale(bool uniform) noexcept { m_uniformScale = uniform; }
 
 private:
   QString m_clipId;
@@ -120,6 +122,7 @@ private:
   FrameIndex m_sourceInFrame{0};
   int m_trackIndex{0};
   double m_speed{1.0};
+  bool m_uniformScale{true};
   bool m_isMuted{false};
   bool m_isLocked{false};
   int m_blendMode{0};

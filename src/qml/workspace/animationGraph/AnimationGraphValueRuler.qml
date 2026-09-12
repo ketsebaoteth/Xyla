@@ -6,6 +6,7 @@ Rectangle {
 
     width: 44
     color: "#131313"
+    z: 300
 
     // Default 200px per 1.0 value unit (perfect for 0.0 - 1.0 Vulkan/normalized coordinates)
     property real verticalScale: 200.0

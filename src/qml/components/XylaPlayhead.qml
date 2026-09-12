@@ -1,6 +1,5 @@
 import QtQuick
 import QtQuick.Shapes
-import QtQuick.Effects
 
 Item {
     id: root
@@ -23,6 +22,9 @@ Item {
     readonly property color playheadColor: "#70f250"
     readonly property bool isPlayingReverse: activePlaybackManager && activePlaybackManager.isPlaying && activePlaybackManager.isPlayingReverse
 
+    // Only visible when within the active canvas area (never over the header sidebar)
+    readonly property bool isPlayheadVisible: dragPixelX >= (playheadMargin - 1) && (!parent || dragPixelX <= parent.width + 10)
+
     x: dragPixelX
     width: 1
     z: 200
@@ -38,7 +40,7 @@ Item {
         }
     }
 
-    // Motion Trail Gradient (Appears only during playback)
+    // Motion Trail Gradient
     Rectangle {
         id: trail
         anchors.top: parent.top
@@ -46,7 +48,8 @@ Item {
         anchors.bottom: parent.bottom
         width: 20
         x: isPlayingReverse ? 1 : -width + 1
-        opacity: (activePlaybackManager && activePlaybackManager.isPlaying) ? 1.0 : 0.0
+        opacity: (activePlaybackManager && activePlaybackManager.isPlaying && root.isPlayheadVisible) ? 1.0 : 0.0
+        visible: root.isPlayheadVisible && opacity > 0.0
 
         Behavior on opacity {
             NumberAnimation {
@@ -68,6 +71,7 @@ Item {
         }
     }
 
+    // Vertical Playhead Line (Hidden when scrolled behind the header)
     Rectangle {
         id: line
         anchors.horizontalCenter: parent.horizontalCenter
@@ -76,15 +80,17 @@ Item {
         anchors.bottom: parent.bottom
         width: 1
         color: root.playheadColor
+        visible: root.isPlayheadVisible
     }
 
-    // Downward Triangle Handle
+    // Downward Triangle Handle (Hidden when scrolled behind the header)
     Shape {
         id: handle
         width: 12
         height: 10
         anchors.horizontalCenter: parent.horizontalCenter
         y: root.rulerHeight - height
+        visible: root.isPlayheadVisible
         layer.enabled: true
         layer.samples: 4
 
