@@ -5,6 +5,7 @@ import com.kdab.dockwidgets 2.0 as KDDW
 
 ApplicationWindow {
     id: workspaceRoot
+    objectName: "workspaceWindow"  // <--- Add this line
 
     visible: true
     width: 1280
@@ -28,6 +29,11 @@ ApplicationWindow {
         if (!item)
             return false;
         return (item.hasOwnProperty("text") && item.hasOwnProperty("cursorPosition") && !item.readOnly);
+    }
+
+    function handleUnsavedCloseRequest() {
+        unsavedDialog.centerPopup();
+        unsavedDialog.open();
     }
 
     Rectangle {
@@ -299,11 +305,17 @@ ApplicationWindow {
         onSaveRequested: {
             if (workspaceRoot.activeProjectManager && workspaceRoot.activeProjectManager.saveProject()) {
                 readyToQuit = true;
+                // Clear the dirty flag so C++ filter doesn't re-block the close event
+                workspaceRoot.activeProjectManager.hasUnsavedChanges = false; 
                 Qt.quit();
             }
         }
         onDiscardRequested: {
             readyToQuit = true;
+            // Clear the dirty flag so C++ filter doesn't re-block the close event
+            if (workspaceRoot.activeProjectManager) {
+                workspaceRoot.activeProjectManager.hasUnsavedChanges = false;
+            }
             Qt.quit();
         }
         onCancelRequested: {}
