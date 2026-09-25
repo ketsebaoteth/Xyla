@@ -2,14 +2,26 @@ import QtQuick
 import "launcher"
 import "workspace"
 
-QtObject {
+Item {
     id: appController
+    visible: false
+    width: 0
+    height: 0
 
     property bool shuttingDown: false
-    property bool hasProject: typeof projectManager !== "undefined" && projectManager !== null && projectManager.hasActiveProject
+
+    property var activeProjectManager: (typeof projectManager !== "undefined" && projectManager !== null) ? projectManager : null
+    property bool hasProject: activeProjectManager && activeProjectManager.hasActiveProject
+
+    property var activeSettingsManager: (typeof settingsManager !== "undefined" && settingsManager !== null) ? settingsManager : null
+
+    property bool showSplash: activeSettingsManager && activeSettingsManager.showSplashOnStartup ? activeSettingsManager.showSplashOnStartup : false
+
+    property string lastRecentProjectPath: ""
 
     property SplashScreen splashWindow: SplashScreen {
         id: splash
+        settingsManager: activeSettingsManager
     }
 
     property Workspace workspaceWindow: Workspace {
@@ -46,10 +58,46 @@ QtObject {
         }
     }
 
-    onHasProjectChanged: syncWindowVisibility()
+    onHasProjectChanged: {
+        syncWindowVisibility();
+    }
+
+    function attemptBypassSplash() {
+        if (hasProject) {
+            syncWindowVisibility();
+            return;
+        }
+
+        var shouldShowSplash = showSplash;
+
+        if (!shouldShowSplash) {
+            if (appController.lastRecentProjectPath !== "") {
+                activeProjectManager.openProject(appController.lastRecentProjectPath);
+                return;
+            } else {
+                bypassRetryTimer.restart();
+                return;
+            }
+        }
+
+        syncWindowVisibility();
+    }
+
+    Timer {
+        id: bypassRetryTimer
+        interval: 100
+        repeat: false
+        onTriggered: {
+            if (appController.lastRecentProjectPath !== "") {
+                activeProjectManager.openProject(appController.lastRecentProjectPath);
+            } else {
+                syncWindowVisibility();
+            }
+        }
+    }
 
     property var projectConnections: Connections {
-        target: typeof projectManager !== "undefined" ? projectManager : null
+        target: activeProjectManager
 
         function onProjectOpenedSuccessfully() {
             appController.hasProject = true;
@@ -57,7 +105,7 @@ QtObject {
         }
 
         function onHasActiveProjectChanged() {
-            appController.hasProject = projectManager.hasActiveProject;
+            appController.hasProject = activeProjectManager.hasActiveProject;
             appController.syncWindowVisibility();
         }
     }
@@ -65,7 +113,7 @@ QtObject {
     property XylaShortcutEditorDialog shortcutDialog: XylaShortcutEditorDialog {}
 
     property var menuConnections: Connections {
-        target: typeof menuManager !== "undefined" ? menuManager : null
+        target: (typeof menuManager !== "undefined") ? menuManager : null
 
         function onRequestKeyboardShortcuts() {
             appController.shortcutDialog.show();
@@ -74,28 +122,43 @@ QtObject {
         }
     }
 
-    // --- QML Hot Reloader Integration ---
     property var hotReloaderConnections: Connections {
-        target: typeof hotReloader !== "undefined" ? hotReloader : null
+        target: (typeof hotReloader !== "undefined") ? hotReloader : null
 
         function onReloadTriggered() {
-            console.log("[QML Hot Reloader] Reload event received in AppController")
-            appController.syncWindowVisibility()
+            appController.syncWindowVisibility();
         }
     }
 
     property Shortcut reloadShortcut: Shortcut {
         sequences: ["F5", "Ctrl+R"]
-        enabled: typeof hotReloader !== "undefined" && hotReloader !== null
+        enabled: (typeof hotReloader !== "undefined") && hotReloader !== null
         onActivated: {
-            if (typeof hotReloader !== "undefined" && hotReloader !== null) {
-                console.log("[QML Hot Reloader] Manual reload requested via shortcut")
-                hotReloader.clearAndReload()
+            if ((typeof hotReloader !== "undefined") && hotReloader !== null) {
+                hotReloader.clearAndReload();
             }
         }
     }
 
     Component.onCompleted: {
-        syncWindowVisibility();
+        Qt.callLater(attemptBypassSplash);
+    }
+
+    Item {
+        id: modelExtractor
+        visible: false
+        width: 0
+        height: 0
+
+        Repeater {
+            model: (typeof projectManager !== "undefined" && projectManager !== null) ? projectManager.recentProjects : null
+            delegate: Item {
+                Component.onCompleted: {
+                    if (index === 0 && model && model.filePath) {
+                        appController.lastRecentProjectPath = model.filePath;
+                    }
+                }
+            }
+        }
     }
 }
