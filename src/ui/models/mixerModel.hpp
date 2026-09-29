@@ -15,7 +15,8 @@ class TimelineModel;
 
 class MixerModel : public QAbstractListModel {
   Q_OBJECT
-
+  Q_PROPERTY(float masterPeakL READ masterPeakL NOTIFY masterPeaksChanged)
+  Q_PROPERTY(float masterPeakR READ masterPeakR NOTIFY masterPeaksChanged)
 public:
   enum MixerRoles {
     TrackIdRole = Qt::UserRole + 1,
@@ -43,14 +44,20 @@ public:
   Q_INVOKABLE void setPan(int rowIndex, float pan);
   Q_INVOKABLE void setMuted(int rowIndex, bool muted);
   Q_INVOKABLE void setSolo(int rowIndex, bool solo);
-
+  [[nodiscard]] float masterPeakL() const noexcept { return m_masterPeakL; }
+  [[nodiscard]] float masterPeakR() const noexcept { return m_masterPeakR; }
 public slots:
   void refreshChannels();
 
 private slots:
   void pollPeaks();
 
+signals:
+  void masterPeaksChanged();
+
 private:
+  float m_masterPeakL{0.0f};
+  float m_masterPeakR{0.0f};
   TimelineModel *m_timelineModel{nullptr};
   QTimer m_peakPollTimer;
 

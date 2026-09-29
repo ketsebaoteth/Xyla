@@ -15,8 +15,8 @@ Item {
 
     implicitWidth: 90
     property int expandedHeight: 68
-    property int collapsedHeight: 48
-    property int minHeight: 48
+    property int collapsedHeight: 36
+    property int minHeight: 36
     property int maxHeight: 500
     property bool isCollapsed: false
 
@@ -27,17 +27,11 @@ Item {
     property bool isAudioDisabled: false
     property bool isFxDisabled: false
 
-    // --- Wiring to Timeline & Playback for Real-Time Clip Intersect Detection ---
     property var timelineRoot: null
-    property var activeTimelineModel: (timelineRoot && timelineRoot.activeTimelineModel)
-                                      ? timelineRoot.activeTimelineModel
-                                      : (typeof timelineModel !== "undefined" ? timelineModel : null)
-    property var activePlaybackManager: (timelineRoot && timelineRoot.activePlaybackManager)
-                                        ? timelineRoot.activePlaybackManager
-                                        : (typeof playbackManager !== "undefined" ? playbackManager : null)
+    property var activeTimelineModel: (timelineRoot && timelineRoot.activeTimelineModel) ? timelineRoot.activeTimelineModel : (typeof timelineModel !== "undefined" ? timelineModel : null)
+    property var activePlaybackManager: (timelineRoot && timelineRoot.activePlaybackManager) ? timelineRoot.activePlaybackManager : (typeof playbackManager !== "undefined" ? playbackManager : null)
     property int currentPlayheadFrame: activePlaybackManager ? activePlaybackManager.currentFrame : (timelineRoot ? timelineRoot.playheadFrame : 0)
 
-    // Palette highlight status: evaluates reactively as currentPlayheadFrame scrubs/plays
     property bool isHighlighted: {
         if (timelineRoot && typeof timelineRoot.isPlayheadOnClipInTrack === "function") {
             var _triggerFrame = root.currentPlayheadFrame;
@@ -62,6 +56,11 @@ Item {
     signal trackHeightChanged(int newHeight)
     signal trackSelected(int index)
 
+    // notify parent model whenever collapse state or manual resizing alters implicit height
+    onImplicitHeightChanged: {
+        root.trackHeightChanged(root.implicitHeight);
+    }
+
     Behavior on implicitHeight {
         enabled: !resizeMouse.pressed
         NumberAnimation {
@@ -72,7 +71,6 @@ Item {
 
     Rectangle {
         anchors.fill: parent
-        // Highlight background when targeted
         color: root.isSelected ? "#202026" : (root.isLocked ? "#141414" : "#181818")
 
         Behavior on color {
@@ -81,7 +79,6 @@ Item {
             }
         }
 
-        // --- Background Click Handler to Select Track ---
         MouseArea {
             anchors.fill: parent
             z: 0
@@ -97,7 +94,6 @@ Item {
             }
         }
 
-        // Bottom separator border
         Rectangle {
             anchors.left: parent.left
             anchors.right: parent.right
@@ -107,18 +103,16 @@ Item {
             z: 5
         }
 
-        // Right separator border
         Rectangle {
             id: rightBorder
             anchors.right: parent.right
             anchors.top: parent.top
             anchors.bottom: parent.bottom
             width: 1
-            color: "transparent" // "#2d2d2d"
+            color: "transparent"
             z: 5
         }
 
-        // Left Accent Strip (Grows wider & brighter when this track is targeted)
         Rectangle {
             id: accentStrip
             width: root.isSelected ? 4 : 3
@@ -135,9 +129,6 @@ Item {
             }
         }
 
-        // =====================================================================
-        // RIGHT PALETTE INDICATOR STRIP (Highlights when playhead is on clip)
-        // =====================================================================
         Item {
             id: paletteStripContainer
             anchors.right: rightBorder.left
@@ -150,12 +141,9 @@ Item {
                 id: paletteIndicator
                 anchors.right: parent.right
                 anchors.verticalCenter: parent.verticalCenter
-                anchors.rightMargin: 0
                 width: 4
                 height: Math.max(8, parent.height - 24)
-                topRightRadius: 0
                 topLeftRadius: 2
-                bottomRightRadius: 0
                 bottomLeftRadius: 2
                 opacity: 0.4
                 color: root.isHighlighted ? (root.isVideo ? "#3b82f6" : "#22c55e") : "#222222"
@@ -166,7 +154,6 @@ Item {
                     }
                 }
 
-                // Glowing blue aura when active
                 Rectangle {
                     anchors.fill: parent
                     radius: parent.radius
@@ -183,12 +170,11 @@ Item {
             }
         }
 
-        // Header controls (chevron, name, icon buttons)
         RowLayout {
             anchors.left: parent.left
             anchors.right: paletteStripContainer.left
             anchors.top: parent.top
-            anchors.topMargin: (root.collapsedHeight - height) / 2
+            anchors.topMargin: Math.max(2, (root.collapsedHeight - height) / 2)
             anchors.leftMargin: 8
             anchors.rightMargin: 4
             height: 28
@@ -233,7 +219,6 @@ Item {
                     text: root.trackName
                     color: root.isLocked ? "#555555" : (root.isSelected ? "#ffffff" : "#d0d0d5")
                     font.pixelSize: 12
-                    // font.bold: root.isSelected
                     elide: Text.ElideRight
                     visible: !nameInputWrapper.visible
                 }
@@ -346,6 +331,7 @@ Item {
             }
         }
 
+        // bottom edge resize grip
         Item {
             height: 8
             anchors.left: parent.left
@@ -359,7 +345,7 @@ Item {
                 anchors.left: parent.left
                 anchors.right: parent.right
                 anchors.verticalCenter: parent.verticalCenter
-                color: resizeMouse.containsMouse ? "#2555D3" : "transparent"
+                color: resizeMouse.containsMouse || resizeMouse.pressed ? "#2555D3" : "transparent"
             }
 
             MouseArea {
@@ -384,7 +370,6 @@ Item {
                         var deltaY = pt.y - startMouseY;
                         var newH = Math.max(root.minHeight, Math.min(root.maxHeight, startHeight + deltaY));
                         root.expandedHeight = newH;
-                        root.trackHeightChanged(newH);
                     }
                 }
             }

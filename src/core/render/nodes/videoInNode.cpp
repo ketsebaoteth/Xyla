@@ -23,15 +23,18 @@ VideoInNode::VideoInNode(QString id, QString name, QString assetId)
     : Node(std::move(id)), m_assetId(std::move(assetId)) {
   setName(name.isEmpty() ? StaticDefaultName : std::move(name));
 
-  // Clean, human-readable dropdown selects!
+  // use QStringList with direct string literals to avoid QStringLiteral
+  // initializer_list corruption
   addEnumInput(QStringLiteral("colorSpace"), QStringLiteral("Color Space"),
-               {QStringLiteral("Linear"), QStringLiteral("sRGB"),
-                QStringLiteral("Rec.709"), QStringLiteral("Rec.2020")},
+               QStringList{QStringLiteral("Linear"), QStringLiteral("sRGB"),
+                           QStringLiteral("Rec.709"),
+                           QStringLiteral("Rec.2020")},
                2);
 
   addEnumInput(QStringLiteral("alphaMode"), QStringLiteral("Alpha Mode"),
-               {QStringLiteral("Premultiplied"), QStringLiteral("Straight"),
-                QStringLiteral("Ignore Alpha")},
+               QStringList{QStringLiteral("Premultiplied"),
+                           QStringLiteral("Straight"),
+                           QStringLiteral("Ignore Alpha")},
                0);
 
   addInput(QStringLiteral("speed"), QStringLiteral("Speed"),

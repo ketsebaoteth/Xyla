@@ -1,11 +1,25 @@
 #include "xylaUndoStack.hpp"
 #include "core/actions/xylaActionManager.hpp"
-#include "core/log/logger.hpp"
-#include "core/undo/xylaUndoStack.hpp"
+
 namespace xyla {
 
-XylaUndoStack::XylaUndoStack(QObject *parent) : QObject(parent) {
+XylaUndoStack::XylaUndoStack(QObject *parent) : QObject(parent), m_stack(this) {
   s_instance = this;
+  m_stack.setUndoLimit(100);
+
+  // forward underlying QUndoStack signals to reactive QML properties
+  connect(&m_stack, &QUndoStack::canUndoChanged, this,
+          &XylaUndoStack::canUndoChanged);
+  connect(&m_stack, &QUndoStack::canRedoChanged, this,
+          &XylaUndoStack::canRedoChanged);
+  connect(&m_stack, &QUndoStack::undoTextChanged, this,
+          &XylaUndoStack::undoTextChanged);
+  connect(&m_stack, &QUndoStack::redoTextChanged, this,
+          &XylaUndoStack::redoTextChanged);
+  connect(&m_stack, &QUndoStack::cleanChanged, this,
+          &XylaUndoStack::cleanChanged);
+  connect(&m_stack, &QUndoStack::indexChanged, this,
+          &XylaUndoStack::indexChanged);
 }
 
 XylaUndoStack::~XylaUndoStack() {
@@ -14,117 +28,74 @@ XylaUndoStack::~XylaUndoStack() {
   }
 }
 
-void XylaUndoStack::push(std::unique_ptr<XylaCommand> command) {
-  if (!command)
-    return;
-
-  if (m_index < static_cast<int>(m_stack.size())) {
-    m_stack.erase(m_stack.begin() + m_index, m_stack.end());
-  }
-
-  if (!m_stack.empty() && m_stack.back()->mergeWith(command.get())) {
-    m_stack.back()->redo();
-    emit indexChanged();
-    return;
-  }
-
-  command->redo();
-  m_stack.push_back(std::move(command));
-  m_index = static_cast<int>(m_stack.size());
-
-  if (m_stack.size() > m_maxUndoSteps) {
-    m_stack.erase(m_stack.begin());
-    m_index--;
-  }
-
-  emit canUndoChanged(canUndo());
-  emit canRedoChanged(canRedo());
-  emit indexChanged();
-}
-
-bool XylaUndoStack::undo() {
-  if (!canUndo())
-    return false;
-
-  m_index--;
-  m_stack[m_index]->undo();
-
-  // XYLA_LOG_INFO("UndoStack",
-  //               "Undid action: " + m_stack[m_index]->text().toStdString());
-
-  emit canUndoChanged(canUndo());
-  emit canRedoChanged(canRedo());
-  emit indexChanged();
-  return true;
-}
-
-bool XylaUndoStack::redo() {
-  if (!canRedo())
-    return false;
-
-  m_stack[m_index]->redo();
-  // XYLA_LOG_INFO("UndoStack",
-  //               "Redid action: " + m_stack[m_index]->text().toStdString());
-  m_index++;
-
-  emit canUndoChanged(canUndo());
-  emit canRedoChanged(canRedo());
-  emit indexChanged();
-  return true;
-}
-
-void XylaUndoStack::clear() {
-  m_stack.clear();
-  m_index = 0;
-  emit canUndoChanged(false);
-  emit canRedoChanged(false);
-  emit indexChanged();
-}
-
-bool XylaUndoStack::canUndo() const { return m_index > 0; }
-
-bool XylaUndoStack::canRedo() const {
-  return m_index < static_cast<int>(m_stack.size());
-}
-
-QString XylaUndoStack::undoText() const {
-  return canUndo() ? m_stack[m_index - 1]->text() : QString();
-}
-
-QString XylaUndoStack::redoText() const {
-  return canRedo() ? m_stack[m_index]->text() : QString();
-}
-
-void XylaUndoStack::registerActions(xyla::XylaActionManager *actionMgr) {
+void XylaUndoStack::registerActions(XylaActionManager *actionMgr) {
   if (!actionMgr) {
     return;
   }
 
-  // Register Undo as "edit.undo"
   actionMgr->registerAction({"edit.undo",
-                             {"Undo", "Undo last operation",
-                              "Reverts the most recent timeline, project, or "
-                              "node graph edit operation",
-                              "https://docs.xyla.dev/manual/undo"},
-                             "qrc:/assets/icons/arrow-back.svg",
-                             canUndo(),
+                             {"Undo", "Undo previous edit action",
+                              "Reverts the last timeline modification"},
+                             "qrc:/assets/icons/undo.svg",
+                             true,
                              [this]() { undo(); }});
 
-  // Register Redo as "edit.redo"
-  actionMgr->registerAction({"edit.redo",
-                             {"Redo", "Redo last undone operation",
-                              "Reapplies the most recently reverted timeline, "
-                              "project, or node graph operation",
-                              "https://docs.xyla.dev/manual/undo#redo"},
-                             "qrc:/assets/icons/arrow-forward.svg",
-                             canRedo(),
-                             [this]() { redo(); }});
-
-  // Keep ActionManager's enabled state in sync automatically
-  connect(this, &XylaUndoStack::canUndoChanged, actionMgr,
-          [actionMgr](bool can) { actionMgr->setEnabled("edit.undo", can); });
-
-  connect(this, &XylaUndoStack::canRedoChanged, actionMgr,
-          [actionMgr](bool can) { actionMgr->setEnabled("edit.redo", can); });
+  actionMgr->registerAction(
+      {"edit.redo",
+       {"Redo", "Redo previous edit action",
+        "Re-applies the last reverted timeline modification"},
+       "qrc:/assets/icons/redo.svg",
+       true,
+       [this]() { redo(); }});
 }
+
+void XylaUndoStack::push(std::unique_ptr<XylaCommand> command) {
+  if (!command) {
+    return;
+  }
+
+  // release ownership directly to QUndoStack
+  m_stack.push(command.release());
+}
+
+void XylaUndoStack::beginMacro(const QString &text) {
+  m_stack.beginMacro(text);
+}
+
+void XylaUndoStack::endMacro() { m_stack.endMacro(); }
+
+bool XylaUndoStack::undo() {
+  if (!m_stack.canUndo()) {
+    return false;
+  }
+
+  m_stack.undo();
+  return true;
+}
+
+bool XylaUndoStack::redo() {
+  if (!m_stack.canRedo()) {
+    return false;
+  }
+
+  m_stack.redo();
+  return true;
+}
+
+void XylaUndoStack::clear() { m_stack.clear(); }
+
+void XylaUndoStack::setClean() { m_stack.setClean(); }
+
+bool XylaUndoStack::canUndo() const noexcept { return m_stack.canUndo(); }
+
+bool XylaUndoStack::canRedo() const noexcept { return m_stack.canRedo(); }
+
+bool XylaUndoStack::isClean() const noexcept { return m_stack.isClean(); }
+
+QString XylaUndoStack::undoText() const { return m_stack.undoText(); }
+
+QString XylaUndoStack::redoText() const { return m_stack.redoText(); }
+
+void XylaUndoStack::setUndoLimit(int limit) { m_stack.setUndoLimit(limit); }
+
 } // namespace xyla

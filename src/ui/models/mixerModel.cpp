@@ -63,6 +63,15 @@ void MixerModel::pollPeaks() {
   auto &engine = audio::AudioEngine::instance();
   auto *master = engine.masterNode();
 
+  static const QList<int> peakRoles = []() {
+    QList<int> roles;
+    roles.append(PeakLRole);
+    roles.append(PeakRRole);
+    return roles;
+  }();
+
+  bool masterMoved = false;
+
   for (size_t i = 0; i < m_channels.size(); ++i) {
     auto &ch = m_channels[i];
     float curL = 0.0f;
@@ -72,22 +81,32 @@ void MixerModel::pollPeaks() {
       if (master) {
         curL = master->peakL();
         curR = master->peakR();
+
+        if (std::abs(curL - m_masterPeakL) > 0.001f ||
+            std::abs(curR - m_masterPeakR) > 0.001f) {
+          m_masterPeakL = curL;
+          m_masterPeakR = curR;
+          masterMoved = true;
+        }
       }
     } else if (ch.trackNode) {
       curL = ch.trackNode->peakL();
       curR = ch.trackNode->peakR();
     }
 
-    // Only emit dataChanged if peaks moved significantly (prevents spamming Qt
-    // event loop)
     if (std::abs(curL - ch.lastPeakL) > 0.001f ||
         std::abs(curR - ch.lastPeakR) > 0.001f) {
       ch.lastPeakL = curL;
       ch.lastPeakR = curR;
 
       QModelIndex idx = index(static_cast<int>(i), 0);
-      emit dataChanged(idx, idx, {PeakLRole, PeakRRole});
+      emit dataChanged(idx, idx, peakRoles);
     }
+  }
+
+  // notify QML master peak meter directly
+  if (masterMoved) {
+    emit masterPeaksChanged();
   }
 }
 

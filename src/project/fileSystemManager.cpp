@@ -21,7 +21,7 @@ bool DirectoryCache::get(const QString &path, DirectoryCacheEntry &out) {
 
   out = it.value();
   m_order.removeAll(path);
-  m_order.append(path); // mark as most recently used
+  m_order.append(path);
   return true;
 }
 
@@ -47,25 +47,24 @@ void DirectoryCache::clear() {
 
 void DirectoryScanner::scan(const QString &path, quint64 requestId,
                             bool showHidden) {
+  // omit reserve to avoid CapacityReserved assertion bug in debug builds
   QList<FileItem> batch;
-  batch.reserve(32);
 
   QDir::Filters filters = QDir::Dirs | QDir::Files | QDir::NoDotAndDotDot;
   if (showHidden)
     filters |= QDir::Hidden | QDir::System;
 
-  // Use the filters variable
   QDirIterator it(path, filters);
 
   while (it.hasNext()) {
     it.next();
     const QFileInfo info = it.fileInfo();
 
-    FileItem item{}; // value-init everything
+    FileItem item{};
     item.name = info.fileName();
     item.filePath = QDir::cleanPath(info.absoluteFilePath());
     item.isDir = info.isDir();
-    item.size = info.isDir() ? 0 : info.size(); // dirs report 0
+    item.size = info.isDir() ? 0 : info.size();
     item.lastModified =
         info.lastModified().isValid() ? info.lastModified() : QDateTime();
     item.createdAt =
@@ -98,8 +97,7 @@ void FileSystemModel::onDirectoryChanged(const QString &path) {
   if (path.isEmpty() || path != m_currentPath || !m_scanner)
     return;
   m_dirCache.remove(m_currentPath);
-  scheduleApplyFiltersAndSort(); // don't
-  // Debounce the rescan:
+  scheduleApplyFiltersAndSort();
   QMetaObject::invokeMethod(
       this,
       [this, id = m_scanRequestId]() {
@@ -111,9 +109,7 @@ void FileSystemModel::onDirectoryChanged(const QString &path) {
 }
 
 FileSystemModel::FileSystemModel(QObject *parent) : QAbstractListModel(parent) {
-  // ── Settings (owned by the model) ──────────────────────────────────────
-  m_fileManagerSettings =
-      new FileManagerSettings(this); // parented → automatic cleanup
+  m_fileManagerSettings = new FileManagerSettings(this);
 
   connect(m_fileManagerSettings, &FileManagerSettings::sortModeChanged, this,
           [this]() { setSortBy(m_fileManagerSettings->sortMode()); });
@@ -134,7 +130,6 @@ FileSystemModel::FileSystemModel(QObject *parent) : QAbstractListModel(parent) {
   }
 
   if (startPath.isEmpty() || !QDir(startPath).exists()) {
-    // Map the friendly name to a real path
     const QString loc = m_fileManagerSettings->startupLocation();
     if (loc == QLatin1String("Desktop"))
       startPath =
@@ -156,18 +151,14 @@ FileSystemModel::FileSystemModel(QObject *parent) : QAbstractListModel(parent) {
           QStandardPaths::writableLocation(QStandardPaths::MoviesLocation);
     else if (QFileInfo::exists(loc))
       startPath = QDir::cleanPath(loc);
-    else // "Home" or anything else
+    else
       startPath =
           QStandardPaths::writableLocation(QStandardPaths::HomeLocation);
   }
 
   m_currentPath = QDir::cleanPath(startPath);
-  // done settings setup
   qRegisterMetaType<xyla::FileItem>();
   qRegisterMetaType<QList<xyla::FileItem>>();
-  // qRegisterMetaType<QList<xyla::FileItem>>("QList<xyla::FileItem>");
-
-  // m_currentPath = QDir::homePath();
 
   const QString appData =
       QStandardPaths::writableLocation(QStandardPaths::AppDataLocation);
@@ -197,9 +188,9 @@ FileSystemModel::FileSystemModel(QObject *parent) : QAbstractListModel(parent) {
 }
 
 FileSystemModel::~FileSystemModel() {
-  ++m_scanRequestId; // drop in-flight batches
+  ++m_scanRequestId;
   m_pendingApply = false;
-  m_applyingFilters = true; // block doApply
+  m_applyingFilters = true;
   disconnect(&m_dirWatcher, nullptr, this, nullptr);
   if (m_scanner) {
     disconnect(m_scanner, nullptr, this, nullptr);
@@ -219,18 +210,16 @@ int FileSystemModel::rowCount(const QModelIndex &parent) const {
 QVariant FileSystemModel::data(const QModelIndex &index, int role) const {
   if (!index.isValid() || index.row() < 0 || index.row() >= m_items.size())
     return QVariant();
-  // Defensive: never touch a settings pointer that might have been destroyed
+
   const FileManagerSettings *settings = m_fileManagerSettings;
   const auto &item = m_items[index.row()];
   switch (role) {
   case NameRole: {
     if (item.isDir || !settings || settings->showFileExtensions())
       return item.name;
-    // ...
 
-    // Strip the extension for files
     const int dot = item.name.lastIndexOf(QLatin1Char('.'));
-    if (dot > 0) // keep names that start with a dot (hidden files)
+    if (dot > 0)
       return item.name.left(dot);
     return item.name;
   }
@@ -255,7 +244,6 @@ QVariant FileSystemModel::data(const QModelIndex &index, int role) const {
 
 QVariantList FileSystemModel::pathCompletions(const QString &path) const {
   QVariantList result;
-
   const int slash = std::max(path.lastIndexOf('/'), path.lastIndexOf('\\'));
 
   QString dirPath;
@@ -270,7 +258,6 @@ QVariantList FileSystemModel::pathCompletions(const QString &path) const {
   }
 
   QDir dir(dirPath);
-
   if (!dir.exists())
     return result;
 
@@ -286,7 +273,6 @@ QVariantList FileSystemModel::pathCompletions(const QString &path) const {
     item["name"] = info.fileName();
     item["path"] = QDir::fromNativeSeparators(info.absoluteFilePath());
     item["isFolder"] = info.isDir();
-
     result.append(item);
   }
 
@@ -296,29 +282,19 @@ QVariantList FileSystemModel::pathCompletions(const QString &path) const {
 QVariantList FileSystemModel::quickAccessItems() const {
   QVariantList result;
 
-  // ------------------------------------------------------------
-  // Devices
-  // ------------------------------------------------------------
-
   for (const QStorageInfo &storage : QStorageInfo::mountedVolumes()) {
     if (!storage.isValid() || !storage.isReady())
       continue;
 
     const QString path = storage.rootPath();
-
     QVariantMap item;
     item["section"] = "Devices";
     item["name"] =
         storage.displayName().isEmpty() ? path : storage.displayName();
     item["path"] = path;
     item["bookmarked"] = isBookmarked(path);
-
     result.append(item);
   }
-
-  // ------------------------------------------------------------
-  // Common folders
-  // ------------------------------------------------------------
 
   const QList<QPair<QString, QString>> commonFolders = {
       {"Home", QStandardPaths::writableLocation(QStandardPaths::HomeLocation)},
@@ -344,13 +320,8 @@ QVariantList FileSystemModel::quickAccessItems() const {
     item["name"] = name;
     item["path"] = QDir(path).absolutePath();
     item["bookmarked"] = isBookmarked(path);
-
     result.append(item);
   }
-
-  // ------------------------------------------------------------
-  // Bookmarks
-  // ------------------------------------------------------------
 
   for (const QVariant &path : m_bookmarks) {
     if (!QDir(path.toString()).exists())
@@ -361,7 +332,6 @@ QVariantList FileSystemModel::quickAccessItems() const {
     item["name"] = QFileInfo(path.toString()).fileName();
     item["path"] = path;
     item["bookmarked"] = true;
-
     result.append(item);
   }
 
@@ -369,9 +339,6 @@ QVariantList FileSystemModel::quickAccessItems() const {
 }
 
 QHash<int, QByteArray> FileSystemModel::roleNames() const {
-  // Static – constructed once. roleNames() is called from inside
-  // modelAboutToBeReset; allocating a temporary QHash + QByteArrays
-  // on every call under rapid resets corrupts the heap.
   static const QHash<int, QByteArray> roles = {
       {NameRole, QByteArrayLiteral("fileName")},
       {PathRole, QByteArrayLiteral("filePath")},
@@ -394,7 +361,6 @@ void FileSystemModel::setCurrentPath(const QString &path) {
   QDir dir(path);
   const QString cleanTarget = QDir::cleanPath(dir.absolutePath());
   if (dir.exists() && m_currentPath != cleanTarget) {
-    // Unwatch old path and watch new path
     if (!m_currentPath.isEmpty()) {
       m_dirWatcher.removePath(m_currentPath);
     }
@@ -460,7 +426,7 @@ void FileSystemModel::refresh() {
       QDir(m_currentPath).exists()) {
     m_dirWatcher.addPath(m_currentPath);
   }
-  if (!m_scanner) // model is shutting down
+  if (!m_scanner)
     return;
   scanDirectory();
 }
@@ -555,8 +521,6 @@ QString FileSystemModel::makeFolder(const QString &folderName) {
   QString targetName = baseName;
   int counter = 1;
 
-  // Auto-increment name if collisions exist ("New folder", "New folder (1)",
-  // etc.)
   while (dir.exists(targetName)) {
     targetName = QString("%1 (%2)").arg(baseName).arg(counter++);
   }
@@ -569,8 +533,6 @@ QString FileSystemModel::makeFolder(const QString &folderName) {
 
   scanDirectory();
   emit lastErrorChanged();
-
-  // Return created folder name so QML can locate and highlight it
   return targetName;
 }
 
@@ -585,7 +547,6 @@ void FileSystemModel::pushHistory(const QString &path) {
   emit canCdForwardChanged();
 }
 
-// ---------------------------------------------------------------
 QVariantMap FileSystemModel::get(int index) const {
   QVariantMap map;
   if (index < 0 || index >= m_items.size())
@@ -602,7 +563,6 @@ QVariantMap FileSystemModel::get(int index) const {
   return map;
 }
 
-// ---------------------------------------------------------------
 void FileSystemModel::cut(const QStringList &paths) {
   m_clipboardPaths = paths;
   m_clipboardIsCut = true;
@@ -617,11 +577,10 @@ void FileSystemModel::copy(const QStringList &paths) {
 
 bool FileSystemModel::canPaste() const { return !m_clipboardPaths.isEmpty(); }
 
-Q_INVOKABLE void FileSystemModel::copyToClipboard(const QString &text) {
+void FileSystemModel::copyToClipboard(const QString &text) {
   QGuiApplication::clipboard()->setText(text);
 }
 
-// ---------------------------------------------------------------
 bool FileSystemModel::paste(const QString &targetDir) {
   m_lastError.clear();
   const QString destDir = targetDir.isEmpty() ? m_currentPath : targetDir;
@@ -638,11 +597,9 @@ bool FileSystemModel::paste(const QString &targetDir) {
     QFileInfo srcInfo(src);
     if (!srcInfo.exists())
       continue;
-    // ...
 
     QString destPath = QDir(destDir).filePath(srcInfo.fileName());
 
-    // Avoid overwriting – add suffix if needed
     int counter = 1;
     while (QFileInfo::exists(destPath)) {
       QString base = srcInfo.completeBaseName();
@@ -659,7 +616,6 @@ bool FileSystemModel::paste(const QString &targetDir) {
       ok = QFile::rename(src, destPath);
     } else {
       if (srcInfo.isDir()) {
-        // Simple recursive copy for directories
         ok = copyDirectory(src, destPath);
       } else {
         ok = QFile::copy(src, destPath);
@@ -693,7 +649,6 @@ bool FileSystemModel::copyDirectory(const QString &srcPath,
     return false;
   if (!QDir().mkpath(destPath))
     return false;
-  // ...
 
   const auto entries =
       srcDir.entryInfoList(QDir::Files | QDir::Dirs | QDir::NoDotAndDotDot);
@@ -712,7 +667,6 @@ bool FileSystemModel::copyDirectory(const QString &srcPath,
   return true;
 }
 
-// ---------------------------------------------------------------
 bool FileSystemModel::rename(const QString &oldPath, const QString &newName) {
   m_lastError.clear();
   const QString name = newName.trimmed();
@@ -743,12 +697,11 @@ bool FileSystemModel::rename(const QString &oldPath, const QString &newName) {
   return true;
 }
 
-// ---------------------------------------------------------------
 bool FileSystemModel::moveToTrash(const QStringList &paths) {
   m_lastError.clear();
 
   for (const QString &path : paths) {
-    if (!QFile::moveToTrash(path)) { // Qt 5.15+ / Qt 6
+    if (!QFile::moveToTrash(path)) {
       m_lastError = QString("Could not move \"%1\" to trash.")
                         .arg(QFileInfo(path).fileName());
       emit lastErrorChanged();
@@ -766,7 +719,6 @@ void FileSystemModel::scanDirectory() {
   if (m_currentPath.isEmpty())
     return;
 
-  // Invalidate EVERY in-flight batch/finished, even if we use the cache.
   ++m_scanRequestId;
 
   DirectoryCacheEntry cached;
@@ -774,16 +726,15 @@ void FileSystemModel::scanDirectory() {
   if (m_dirCache.get(m_currentPath, cached) &&
       cached.dirLastModified.isValid() &&
       cached.dirLastModified == currentMtime) {
-    m_rawEntries = cached.items; // QList copy (detach from cache)
+    m_rawEntries = cached.items;
     m_loading = false;
     emit loadingChanged();
-    doApplyFiltersAndSort(); // synchronous — not queued
+    doApplyFiltersAndSort();
     return;
   }
 
   m_rawEntries.clear();
 
-  // Clear the view NOW. Do not wait for a queued apply.
   beginResetModel();
   m_items.clear();
   endResetModel();
@@ -801,7 +752,6 @@ void FileSystemModel::onScanBatchReady(quint64 requestId,
   if (requestId != m_scanRequestId)
     return;
   m_rawEntries.append(std::move(batch));
-  // Optional live UI: coalesce a rebuild. Do NOT insert rows here.
   scheduleApplyFiltersAndSort();
 }
 
@@ -811,7 +761,7 @@ void FileSystemModel::onScanFinished(quint64 requestId,
     return;
 
   m_dirCache.insert(m_currentPath, {m_rawEntries, dirLastModified});
-  doApplyFiltersAndSort(); // sync final snapshot
+  doApplyFiltersAndSort();
   m_loading = false;
   emit loadingChanged();
 }
@@ -826,7 +776,6 @@ bool FileSystemModel::passesFilters(const FileItem &item) const {
 
   if (!m_typeFilter.isEmpty() && m_typeFilter != "All Files") {
     const QStringList allowed = m_typeFilter.split(',', Qt::SkipEmptyParts);
-
     bool match = false;
 
     for (QString raw : allowed) {
@@ -882,10 +831,6 @@ bool FileSystemModel::passesFilters(const FileItem &item) const {
       return false;
   }
 
-  // ------------------------------------------------------------
-  // SIZE
-  // ------------------------------------------------------------
-
   const qint64 size = item.size;
 
   if (m_sizeFilter == "Empty" && size != 0)
@@ -904,10 +849,6 @@ bool FileSystemModel::passesFilters(const FileItem &item) const {
 
   if (m_sizeFilter == "Over 100 MB" && size <= 100 * 1024 * 1024)
     return false;
-
-  // ------------------------------------------------------------
-  // CREATED AT / MODIFIED AT
-  // ------------------------------------------------------------
 
   const QDateTime now = QDateTime::currentDateTime();
   const QDate today = now.date();
@@ -962,7 +903,7 @@ void FileSystemModel::scheduleApplyFiltersAndSort() {
       this,
       [this]() {
         m_pendingApply = false;
-        if (m_scanRequestId == 0) // destroyed / torn down
+        if (m_scanRequestId == 0)
           return;
         doApplyFiltersAndSort();
       },
@@ -980,10 +921,9 @@ void FileSystemModel::doApplyFiltersAndSort() {
   const bool ascending = (m_sortOrder != QLatin1String("descending"));
   const bool foldersFirst = m_foldersFirst;
 
+  // omit reserve to avoid CapacityReserved assertion bug in debug builds
   QList<FileItem> filtered;
-  filtered.reserve(m_rawEntries.size());
   QSet<QString> seen;
-  seen.reserve(m_rawEntries.size());
 
   for (const FileItem &item : m_rawEntries) {
     const QString key = item.filePath;
@@ -996,10 +936,6 @@ void FileSystemModel::doApplyFiltersAndSort() {
   }
 
   auto less = [&](const FileItem &a, const FileItem &b) -> bool {
-
-    // if (a.isDir != b.isDir)
-    //   return foldersFirst ? a.isDir : !a.isDir;
-
     int cmp = 0;
     if (sortBy == QLatin1String("Date Modified")) {
       if (a.lastModified != b.lastModified)
@@ -1024,13 +960,8 @@ void FileSystemModel::doApplyFiltersAndSort() {
               return ascending ? less(a, b) : less(b, a);
             });
 
-  // std::sort(filtered.begin(), filtered.end(),
-  //           [&](const FileItem &a, const FileItem &b) {
-  //             return ascending ? less(a, b) : less(b, a);
-  //           });
-
   beginResetModel();
-  m_items.swap(filtered); // old list destroyed after notify
+  m_items.swap(filtered);
   endResetModel();
 
   m_applyingFilters = false;
@@ -1093,34 +1024,26 @@ bool FileSystemModel::toggleBookmark(const QString &path) {
 void FileSystemModel::loadSettings() {
   QSettings settings("xyla", "FileSystemModel");
 
-  // Retrieve settings with fallback defaults if keys don't exist yet
   setSortBy(settings.value("sortBy", "Name").toString());
   setSortOrder(settings.value("sortOrder", "ascending").toString());
   setFoldersFirst(settings.value("foldersFirst", true).toBool());
   setTypeFilter(settings.value("typeFilter", "All Files").toString());
   setSizeFilter(settings.value("sizeFilter", "Any Size").toString());
-
-  // Optional: restore filter strings if saved
   setNameFilter(settings.value("nameFilter", "").toString());
 }
 
 void FileSystemModel::saveSettings() const {
   QSettings settings("xyla", "FileSystemModel");
 
-  // Write persistent configuration properties to disk
   settings.setValue("sortBy", m_sortBy);
   settings.setValue("sortOrder", m_sortOrder);
   settings.setValue("foldersFirst", m_foldersFirst);
   settings.setValue("typeFilter", m_typeFilter);
   settings.setValue("sizeFilter", m_sizeFilter);
   settings.setValue("nameFilter", m_nameFilter);
-
-  // Force write to disk immediately (QSettings also syncs automatically on
-  // destruction)
   settings.sync();
 }
 
-// NOTE: The main Settings Pool
 extern SettingsManager *g_settingsManager;
 
 FileManagerSettings::FileManagerSettings(QObject *parent) : QObject(parent) {
@@ -1203,8 +1126,6 @@ void FileManagerSettings::resetToDefaults() {
   emit openFoldersWithDoubleClickChanged();
   emit showTooltipsChanged();
 }
-
-// Setters
 
 void FileManagerSettings::setStartupLocation(const QString &v) {
   if (m_startupLocation == v)

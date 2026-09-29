@@ -59,14 +59,6 @@ Item {
         }
     }
 
-    Behavior on x {
-        enabled: !isDragging
-        NumberAnimation {
-            duration: 180
-            easing.type: Easing.OutCubic
-        }
-    }
-
     // Motion Trail Gradient
     Rectangle {
         id: trail

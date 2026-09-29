@@ -18,134 +18,82 @@
 #include <kddockwidgets/core/views/MainWindowViewInterface.h>
 #include <kddockwidgets/qtquick/views/DockWidget.h>
 
-// INFO: Logs commented out
-
 namespace {
 
-const QStringList kWorkspaces = {
-    QStringLiteral("Edit"), QStringLiteral("Cut"), QStringLiteral("Color"),
-    QStringLiteral("Audio"), QStringLiteral("View")};
+// lazy initialize workspace list to prevent static initialization crash
+const QStringList &getWorkspaces() {
+  static const QStringList list = {
+      QStringLiteral("Edit"), QStringLiteral("Cut"), QStringLiteral("Color"),
+      QStringLiteral("Audio"), QStringLiteral("View")};
+  return list;
+}
 
 KDDockWidgets::Core::MainWindowViewInterface *
 findDockingArea(const QString &profileName) {
   auto *registry = KDDockWidgets::DockRegistry::self();
   if (!registry) {
-    // qWarning() << "[Workspace][findDockingArea] DockRegistry::self() returned
-    // "
-    //               "NULL for profile:"
-    //            << profileName;
     return nullptr;
   }
 
   const QString wantedName = QStringLiteral("MainLayout-%1").arg(profileName);
   const auto areas = registry->mainDockingAreas();
 
-  // qDebug() << "[Workspace][findDockingArea] Searching for area:" <<
-  // wantedName
-  //          << "among" << areas.size() << "registered areas.";
-  //
   for (auto *area : areas) {
     if (!area) {
-      // qWarning()
-      //     << "[Workspace][findDockingArea] Found NULL area in registry
-      //     list!";
       continue;
     }
-
-    // qDebug() << "[Workspace][findDockingArea] Found area:"
-    //          << area->uniqueName();
     if (area->uniqueName() == wantedName) {
-      // qDebug() << "[Workspace][findDockingArea] MATCH FOUND:"
-      //          << area->uniqueName() << "pointer:" << area;
       return area;
     }
   }
 
-  // qWarning()
-  // << "[Workspace][findDockingArea] FAILED to find docking area for profile:"
-  // << profileName << "(wanted:" << wantedName << ")";
   return nullptr;
 }
 
 KDDockWidgets::Vector<QString> affinityFor(const QString &profileName) {
   KDDockWidgets::Vector<QString> result;
   result.push_back(profileName);
-  // qDebug() << "[Workspace][affinityFor] Generated affinity vector for
-  // profile:"
-  //          << profileName;
   return result;
 }
 
 } // namespace
 
 void WorkspaceLayoutController::initializeWorkspaces() {
-  // qInfo() << "[Workspace][initializeWorkspaces] Starting initialization of
-  // all "
-  //            "workspaces...";
   auto *registry = KDDockWidgets::DockRegistry::self();
-
   if (!registry) {
-    // qCritical() << "[Workspace][initializeWorkspaces] CRITICAL: "
-    //                "KDDockWidgets::DockRegistry::self() is NULL! Aborting.";
     return;
   }
 
-  for (const QString &profile : kWorkspaces) {
-    // qInfo()
-    //     << "[Workspace][initializeWorkspaces] Initializing workspace
-    //     profile:"
-    //     << profile;
+  for (const QString &profile : getWorkspaces()) {
     createWorkspace(profile);
   }
-  // qInfo() << "[Workspace][initializeWorkspaces] All workspace initializations
-  // "
-  //            "triggered.";
 }
 
 bool WorkspaceLayoutController::workspaceExists(
     const QString &profileName) const {
-  bool exists = (findDockingArea(profileName) != nullptr);
-  // qDebug() << "[Workspace][workspaceExists] Profile:" << profileName
-  //          << "exists:" << exists;
-  return exists;
+  return findDockingArea(profileName) != nullptr;
 }
 
 void WorkspaceLayoutController::createWorkspace(const QString &profileName) {
-  // qInfo()
-  //     << "=================================================================";
-  // qInfo() << "[Workspace][createWorkspace] BEGIN createWorkspace for
-  // profile:"
-  //         << profileName;
-
   auto *registry = KDDockWidgets::DockRegistry::self();
   if (!registry) {
-    // qCritical() << "[Workspace][createWorkspace] CRITICAL: "
-    //                "DockRegistry::self() is NULL!";
     return;
   }
 
   auto *mainArea = findDockingArea(profileName);
   if (!mainArea) {
-    // qWarning() << "[Workspace][createWorkspace] ABORT:
-    // MainWindowViewInterface "
-    //               "docking area not found for:"
-    //            << profileName;
     return;
   }
 
   const auto affinity = affinityFor(profileName);
-  // qDebug() << "[Workspace][createWorkspace] Setting affinities on mainArea:"
-  //          << mainArea->uniqueName();
   mainArea->setAffinities(affinity);
 
   const QString prefix = QStringLiteral("%1.").arg(profileName);
   for (auto *dock : registry->dockwidgets()) {
-    if (!dock)
+    if (!dock) {
       continue;
+    }
     if (dock->uniqueName().startsWith(prefix)) {
-      // qWarning() << "[Workspace][createWorkspace] Docks with prefix" <<
-      // prefix
-      //            << "already exist! Skipping duplicate creation.";
       return;
     }
   }
@@ -153,22 +101,10 @@ void WorkspaceLayoutController::createWorkspace(const QString &profileName) {
   auto makeDock = [&](const QString &id, const QString &title,
                       const QString &qmlUrl) {
     const QString uniqueId = QStringLiteral("%1.%2").arg(profileName, id);
-    // qDebug() << "[Workspace][makeDock] Instantiating DockWidget:" << uniqueId
-    //          << "| Title:" << title << "| QML URL:" << qmlUrl;
-
     auto *dw = new KDDockWidgets::QtQuick::DockWidget(uniqueId);
-    // qDebug() << "[Workspace][makeDock] Created DockWidget instance at:" <<
-    // dw;
-
     dw->setAffinities(affinity);
     dw->setTitle(title);
-
-    // qDebug() << "[Workspace][makeDock] Setting guest item URL:" << qmlUrl
-    //          << "on dock:" << uniqueId;
     dw->setGuestItem(qmlUrl);
-    // qDebug() << "[Workspace][makeDock] Guest item URL assigned for:"
-    //          << uniqueId;
-
     return dw;
   };
 
@@ -201,20 +137,18 @@ void WorkspaceLayoutController::createWorkspace(const QString &profileName) {
     mainArea->addDockWidget(mediaDock, KDDockWidgets::Location_OnLeft);
     mainArea->addDockWidget(monitorDock, KDDockWidgets::Location_OnRight,
                             mediaDock);
-
     mainArea->addDockWidget(propsDock, KDDockWidgets::Location_OnRight,
                             monitorDock);
     mainArea->addDockWidget(timelineDock, KDDockWidgets::Location_OnBottom);
-
     mainArea->addDockWidget(effectDock, KDDockWidgets::Location_OnRight,
                             timelineDock);
 
     QTimer::singleShot(
         0, timelineDock,
         [timelineDock, nodeGraphDock, mixerDock, dopesheetDock]() {
-          if (!timelineDock)
+          if (!timelineDock) {
             return;
-
+          }
           if (nodeGraphDock) {
             timelineDock->addDockWidgetAsTab(nodeGraphDock);
           }
@@ -229,27 +163,22 @@ void WorkspaceLayoutController::createWorkspace(const QString &profileName) {
     auto *clipDock =
         makeDock(QStringLiteral("ClipMonitor"), QStringLiteral("Clip Monitor"),
                  QStringLiteral("qrc:/Xyla/src/qml/workspace/ClipMonitor.qml"));
-
     auto *monitorDock = makeDock(
         QStringLiteral("ProjectMonitor"), QStringLiteral("Project Monitor"),
         QStringLiteral("qrc:/Xyla/src/qml/workspace/ProjectMonitor.qml"));
-
     auto *timelineDock =
         makeDock(QStringLiteral("Timeline"), QStringLiteral("Timeline"),
                  QStringLiteral("qrc:/Xyla/src/qml/workspace/Timeline.qml"));
 
     mainArea->addDockWidget(clipDock, KDDockWidgets::Location_OnTop);
-
     mainArea->addDockWidget(timelineDock, KDDockWidgets::Location_OnBottom,
                             clipDock);
-
     mainArea->addDockWidget(monitorDock, KDDockWidgets::Location_OnRight,
                             clipDock);
   } else if (profileName == QLatin1String("Color")) {
     auto *monitorDock = makeDock(
         QStringLiteral("ProjectMonitor"), QStringLiteral("Project Monitor"),
         QStringLiteral("qrc:/Xyla/src/qml/workspace/ProjectMonitor.qml"));
-
     auto *effectDock = makeDock(
         QStringLiteral("ColorGradePanel"), QStringLiteral("Effect Editor"),
         QStringLiteral("qrc:/Xyla/src/qml/workspace/ColorGradePanel.qml"));
@@ -258,12 +187,9 @@ void WorkspaceLayoutController::createWorkspace(const QString &profileName) {
     mainArea->addDockWidget(effectDock, KDDockWidgets::Location_OnBottom,
                             monitorDock);
   } else if (profileName == QLatin1String("Audio")) {
-    // qInfo()
-    //     << "[Workspace][createWorkspace] Building 'Audio' profile layout...";
     auto *monitorDock = makeDock(
         QStringLiteral("ProjectMonitor"), QStringLiteral("Project Monitor"),
         QStringLiteral("qrc:/Xyla/src/qml/workspace/ProjectMonitor.qml"));
-
     auto *mixerDock =
         makeDock(QStringLiteral("MixerPanel"), QStringLiteral("Audio Mixer"),
                  QStringLiteral("qrc:/Xyla/src/qml/workspace/MixerPanel.qml"));
@@ -272,26 +198,16 @@ void WorkspaceLayoutController::createWorkspace(const QString &profileName) {
     mainArea->addDockWidget(mixerDock, KDDockWidgets::Location_OnBottom,
                             monitorDock);
   } else if (profileName == QLatin1String("View")) {
-    // qInfo() << "[Workspace][createWorkspace] Building 'View' profile
-    // layout...";
     auto *monitorDock = makeDock(
         QStringLiteral("ProjectMonitor"), QStringLiteral("Project Monitor"),
         QStringLiteral("qrc:/Xyla/src/qml/workspace/ProjectMonitor.qml"));
 
     mainArea->addDockWidget(monitorDock, KDDockWidgets::Location_OnTop);
   }
-
-  // qInfo() << "[Workspace][createWorkspace] END createWorkspace for profile:"
-  //         << profileName;
-  // qInfo()
-  //     << "=================================================================";
 }
 
 void WorkspaceLayoutController::saveLayout(const QString &profileName) {
-  // qInfo() << "[Workspace][saveLayout] Saving layout for profile:"
-  //         << profileName;
   if (profileName.isEmpty()) {
-    // qWarning() << "[Workspace][saveLayout] Aborted: profileName is empty.";
     return;
   }
 
@@ -301,20 +217,14 @@ void WorkspaceLayoutController::saveLayout(const QString &profileName) {
 
   const QString fileName = QDir(configDir).filePath(
       QStringLiteral("%1_layout.json").arg(profileName));
-  // qDebug() << "[Workspace][saveLayout] Target file path:" << fileName;
 
   KDDockWidgets::LayoutSaver saver;
   saver.setAffinityNames(affinityFor(profileName));
-  bool success = saver.saveToFile(fileName);
-  // qInfo() << "[Workspace][saveLayout] Save completed. Success:" << success;
+  saver.saveToFile(fileName);
 }
 
 void WorkspaceLayoutController::restoreOrCreate(const QString &profileName) {
-  // qInfo() << "[Workspace][restoreOrCreate] Request received for profile:"
-  //         << profileName;
   if (profileName.isEmpty()) {
-    // qWarning() << "[Workspace][restoreOrCreate] Aborted: profileName is
-    // empty.";
     return;
   }
 
@@ -323,36 +233,20 @@ void WorkspaceLayoutController::restoreOrCreate(const QString &profileName) {
   const QString fileName = QDir(configDir).filePath(
       QStringLiteral("%1_layout.json").arg(profileName));
 
-  // qDebug() << "[Workspace][restoreOrCreate] Checking existence of file:"
-  // << fileName;
   if (QFileInfo::exists(fileName)) {
-    // qInfo() << "[Workspace][restoreOrCreate] Saved layout file found. "
-    //            "Restoring from:"
-    //         << fileName;
     KDDockWidgets::LayoutSaver saver(
         KDDockWidgets::RestoreOption_RelativeToMainWindow);
     saver.setAffinityNames(affinityFor(profileName));
-    bool restored = saver.restoreFromFile(fileName);
-    // qInfo() << "[Workspace][restoreOrCreate] Layout restore status:"
-    //         << restored;
-    if (restored)
+    if (saver.restoreFromFile(fileName)) {
       return;
-    // qWarning() << "[Workspace][restoreOrCreate] Restore failed, falling back
-    // "
-    //               "to createWorkspace().";
-  } else {
-    // qInfo() << "[Workspace][restoreOrCreate] No saved layout found. Creating
-    // "
-    //            "default workspace...";
+    }
   }
 
   createWorkspace(profileName);
 }
 
 void WorkspaceLayoutController::floatCurrentTab(QObject *viewObj) {
-  // qInfo() << "[Workspace][floatCurrentTab] Invoked with object:" << viewObj;
   if (!viewObj) {
-    // qWarning() << "[Workspace][floatCurrentTab] NULL viewObj received!";
     return;
   }
 
@@ -360,36 +254,26 @@ void WorkspaceLayoutController::floatCurrentTab(QObject *viewObj) {
 
   if (auto *gv =
           dynamic_cast<KDDockWidgets::Core::GroupViewInterface *>(viewObj)) {
-    // qDebug() << "[Workspace][floatCurrentTab] Casted to GroupViewInterface";
-    if (auto *g = gv->group())
+    if (auto *g = gv->group()) {
       dw = g->currentDockWidget();
+    }
   } else if (auto *g = dynamic_cast<KDDockWidgets::Core::Group *>(viewObj)) {
-    // qDebug() << "[Workspace][floatCurrentTab] Casted to Group";
     dw = g->currentDockWidget();
   } else if (auto *dv =
                  dynamic_cast<KDDockWidgets::Core::DockWidgetViewInterface *>(
                      viewObj)) {
-    // qDebug()
-    //     << "[Workspace][floatCurrentTab] Casted to DockWidgetViewInterface";
     dw = dv->dockWidget();
   }
 
   if (!dw) {
-    // qWarning()
-    //     << "[Workspace][floatCurrentTab] FAILED to extract DockWidget from:"
-    //     << viewObj << "Class:" << viewObj->metaObject()->className();
     return;
   }
 
-  // qInfo() << "[Workspace][floatCurrentTab] Setting dock to floating:"
-  //         << dw->uniqueName();
   dw->setFloating(true);
 }
 
 void WorkspaceLayoutController::closeCurrentTab(QObject *groupCpp) {
-  // qInfo() << "[Workspace][closeCurrentTab] Invoked with object:" << groupCpp;
   if (!groupCpp) {
-    // qWarning() << "[Workspace][closeCurrentTab] NULL groupCpp received!";
     return;
   }
 
@@ -397,23 +281,13 @@ void WorkspaceLayoutController::closeCurrentTab(QObject *groupCpp) {
       dynamic_cast<KDDockWidgets::Core::GroupViewInterface *>(groupCpp);
   KDDockWidgets::Core::Group *coreGroup = nullptr;
   if (groupView) {
-    // qDebug() << "[Workspace][closeCurrentTab] Found GroupViewInterface";
     coreGroup = groupView->group();
   }
 
   if (coreGroup) {
-    auto *activeDock = coreGroup->currentDockWidget();
-    if (activeDock) {
-      // qInfo() << "[Workspace][closeCurrentTab] Closing active dock widget:"
-      //         << activeDock->uniqueName();
+    if (auto *activeDock = coreGroup->currentDockWidget()) {
       activeDock->close();
-      return;
-    } else {
-      // qWarning() << "[Workspace][closeCurrentTab] coreGroup had no "
-      //               "currentDockWidget()";
     }
-  } else {
-    // qWarning() << "[Workspace][closeCurrentTab] Could not resolve coreGroup";
   }
 }
 
