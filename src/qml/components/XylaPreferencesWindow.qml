@@ -4,20 +4,17 @@ import QtQuick.Layouts
 
 Window {
     id: settingsWindow
-    // width: 1300
-    // height: 900
     visible: false
     title: "Preferences"
     color: "#0E0E0E"
     property string innerTitle: "Settings"
-    property string innerSubTitle: "Preferences" // "Preferences"
+    property string innerSubTitle: "Preferences"
 
     flags: Qt.Window | Qt.WindowTitleHint | Qt.WindowSystemMenuHint | Qt.WindowMinimizeButtonHint | Qt.WindowCloseButtonHint
 
-    // Intercept the close event to stop propagation and hide instead of destroy
     onClosing: function(closeEvent) {
-        closeEvent.accepted = true; // Prevents the event from bubbling up to the parent/application quit handler
-        settingsWindow.visible = false; // Hide the window safely
+        closeEvent.accepted = true;
+        settingsWindow.visible = false;
     }
 
     property int selectedPage: 0
@@ -25,21 +22,14 @@ Window {
 
     property var settingsList: []
 
-    // ==========================================
-    // Dynamic Control Components for SettingCard
-    // ==========================================
     Component {
         id: selectComponent
         XylaSelect {
-            // 1. Declare itemData on the component root
             property var itemData: null
 
             Layout.preferredWidth: 160
             implicitWidth: 160
-            // backgroundColor: "#252525"
-            // highlightedColor: "#2f2f2f"
             
-            // 2. Guard property evaluations against initial null state
             model: itemData ? (itemData.options || []) : []
             tooltip: itemData ? (itemData.label || "") : ""
             currentIndex: (itemData && itemData.value !== undefined && model) 
@@ -58,10 +48,8 @@ Window {
     Component {
         id: buttonComponent
         XylaTextButton {
-            // 1. Declare itemData on the component root
             property var itemData: null
 
-            // 2. Safe property access
             text: itemData ? (itemData.buttonText || "Action") : "Action"
             onClicked: {
                 if (itemData && typeof itemData.onClicked === "function") {
@@ -75,7 +63,6 @@ Window {
 Component {
         id: inputComponent
         Item {
-            // Root Item container gets the size AND the itemData property
             width: 250
             height: 32
 
@@ -116,15 +103,12 @@ Component {
             onToggled: {
                 if (itemData) {
                     itemData.value = checked
-                    // itemData.callback();
+                    itemData.callback(checked);
                 }
             }
         }
     }
 
-    // ==========================================
-    // Main UI Layout
-    // ==========================================
     Rectangle {
         anchors.fill: parent
         color: "#0E0E0E"
@@ -170,7 +154,7 @@ Component {
             }
 
             Text {
-                text: settingsWindow.innerTitle // "Project Settings"
+                text: settingsWindow.innerTitle
                 color: "#ffffff"
                 font.pixelSize: 14
                 font.weight: Font.Medium
@@ -193,7 +177,7 @@ Component {
     }
 
     Rectangle {
-        anchors.top: parent.top // titleBar.bottom
+        anchors.top: parent.top
         anchors.left: parent.left
         anchors.right: parent.right
         anchors.bottom: parent.bottom
@@ -203,19 +187,10 @@ Component {
             anchors.fill: parent
             spacing: 0
 
-            // Navigation Sidebar
             Rectangle {
                 Layout.preferredWidth: 246
                 Layout.fillHeight: true
                 color: "#141414"
-
-                // Rectangle {
-                //     anchors.right: parent.right
-                //     anchors.top: parent.top
-                //     anchors.bottom: parent.bottom
-                //     width: 1
-                //     color: "#303030"
-                // }
 
                 Item {
                     anchors.fill: parent
@@ -231,7 +206,7 @@ Component {
 
 Text {
         id: preferencesTitle
-        text: settingsWindow.innerSubTitle // "Preferences"
+        text: settingsWindow.innerSubTitle
         color: "#ffffff"
         font.pixelSize: 24
         font.weight: Font.DemiBold
@@ -241,7 +216,7 @@ Text {
         opacity: 0.0
 
         Component.onCompleted: {
-            fadeInAnimTitle.restart(); // Use restart() to guarantee it triggers
+            fadeInAnimTitle.restart();
         }
 
         NumberAnimation {
@@ -268,13 +243,11 @@ Repeater {
         Layout.preferredHeight: 40
         radius: 6
 
-        // Set initial properties
         opacity: 0
         scale: 0.82
         transformOrigin: Item.Center
         transform: Translate { id: itemTranslation; y: 20 }
 
-        // Helper function to reset properties and play animation
         function playEntry() {
             navItem.opacity = 0
             navItem.scale = 0.82
@@ -282,32 +255,29 @@ Repeater {
             entryAnimation.restart()
         }
 
-        // Trigger whenever settingsWindow becomes visible
-        Connections {
-            target: settingsWindow
-            function onVisibleChanged() {
-                if (settingsWindow.visible) {
-                    navItem.playEntry()
-                }
-            }
-        }
+function snapToFinal() {
+    navItem.opacity = 1.0
+    navItem.scale = 1.0
+    itemTranslation.y = 0
+}
 
-        // Optional: Trigger once on load in case the window is ALREADY visible on startup
-        Component.onCompleted: {
-            if (settingsWindow.visible) {
-                navItem.playEntry()
-            }
-        }
+Connections {
+    target: settingsWindow
+    function onVisibleChanged() {
+        if (settingsWindow.visible) navItem.playEntry()
+    }
+}
+Component.onCompleted: {
+    if (settingsWindow.visible) navItem.snapToFinal()
+}
 
         SequentialAnimation {
             id: entryAnimation
 
-            // Stagger delay based on item index (35ms per item)
             PauseAnimation {
                 duration: 120 + navItem.index * 55
             }
 
-            // Animate opacity, Y-offset, and scale concurrently
             ParallelAnimation {
                 NumberAnimation {
                     target: navItem
@@ -332,7 +302,7 @@ Repeater {
                     to: 0
                     duration: 380
                     easing.type: Easing.OutBack
-                    easing.overshoot: 1.5 // Higher value gives a punchier upward overshoot recoil
+                    easing.overshoot: 1.5
                 }
             }
         }
@@ -393,7 +363,6 @@ Repeater {
                         }
                     }
 
-                    // Fluent-style Stretch Animating Pill
                     Rectangle {
                         id: selectionPill
                         width: 3
@@ -407,19 +376,10 @@ Repeater {
                         property real pillY: 0
                         property real pillHeight: baseHeight
 
-                        // WARN: Pill disabled
-                        visible: false // targetItem !== null && opacity > 0
-                        opacity: 0 // targetItem !== null ? 1.0 : 0.0
+                        visible: false
+                        opacity: 0
                         y: pillY
                         height: pillHeight
-
-// onTargetItemChanged: {
-//     if (targetItem !== null) {
-//         fadeInAnim.restart();
-//     } else {
-//         opacity = 0; // Fade out instantly or normally when cleared
-//     }
-// }
 
 Component.onCompleted: {
   fadeInAnim.start();
@@ -428,7 +388,6 @@ Component.onCompleted: {
 SequentialAnimation {
     id: fadeInAnim
 
-    // Global delay before the pill starts appearing (e.g., 100ms)
     PauseAnimation { duration: 300 }
 
     NumberAnimation {
@@ -440,7 +399,6 @@ SequentialAnimation {
     }
 }
 
-                        // Add this inside your selectionPill component
                         Connections {
                             target: selectionPill.targetItem
                             ignoreUnknownSignals: true
@@ -567,7 +525,6 @@ SequentialAnimation {
                 }
             }
 
-            // Dynamic Pages Container
             Item {
                 id: pagesContainer
                 Layout.fillWidth: true
@@ -577,9 +534,10 @@ SequentialAnimation {
                     model: settingsWindow.settingsList
 
                     delegate: Flickable {
-                        required property var modelData
-                        required property int index
-                        property var pageData: modelData // Alias to avoid scope shadowing
+    required property var modelData
+    required property int index
+    property int pageIndex: index
+    property var pageData: modelData
                         
                         anchors.fill: parent
                         visible: settingsWindow.selectedPage === index
@@ -598,7 +556,6 @@ SequentialAnimation {
                             anchors.topMargin: 38
                             spacing: 24
 
-                            // Page Title
 Item {
     id: pageTitleContainer
     Layout.fillWidth: true
@@ -610,13 +567,12 @@ Item {
 
     onIsActiveChanged: {
         if (isActive) {
-            // Setup incoming title starting state (below + slightly scaled down)
             incomingTitle.text = pageData.name;
             incomingTitle.y = 28;
             incomingTitle.scale = 0.9;
             incomingTitle.opacity = 0.0;
             
-            currentTitle.text = pageData.name; // temporary sync
+            currentTitle.text = pageData.name;
             titleSlideAnim.restart();
         }
     }
@@ -631,7 +587,6 @@ Item {
         }
     }
 
-    // 1. Outgoing Title Text
     Text {
         id: currentTitle
         text: pageData.name
@@ -644,7 +599,6 @@ Item {
         transformOrigin: Item.Left
     }
 
-    // 2. Incoming Title Text (slides up with scale recoil)
     Text {
         id: incomingTitle
         text: pageData.name
@@ -661,7 +615,6 @@ Item {
         id: titleSlideAnim
 
         ParallelAnimation {
-            // Old title moves up, scales down slightly, and fades out
             NumberAnimation {
                 target: currentTitle
                 property: "y"
@@ -684,7 +637,6 @@ Item {
                 easing.type: Easing.OutCubic
             }
 
-            // New title slides up into place with scale recoil (OutBack) and fades in
             NumberAnimation {
                 target: incomingTitle
                 property: "y"
@@ -710,7 +662,6 @@ Item {
             }
         }
 
-        // Clean up and reset roles behind the scenes
         ScriptAction {
             script: {
                 currentTitle.text = incomingTitle.text;
@@ -724,112 +675,7 @@ Item {
         }
     }
 }
-// Item {
-//     id: pageTitleContainer
-//     Layout.fillWidth: true
-//     Layout.preferredHeight: 38
-//     Layout.bottomMargin: 8
-//     clip: true
-//
-//     // Track which page index this specific delegate belongs to vs active page
-//     property bool isActive: settingsWindow.selectedPage === index
-//
-//     onIsActiveChanged: {
-//         if (isActive) {
-//             // New page is coming in: set incoming text to the current page name, start below
-//             incomingTitle.text = pageData.name;
-//             incomingTitle.y = 28;
-//             incomingTitle.opacity = 0.0;
-//
-//             // Outgoing text starts at center
-//             currentTitle.text = pageData.name; // temporary safety
-//             // Trigger the transition animation
-//             titleSlideAnim.restart();
-//         }
-//     }
-//
-//     Component.onCompleted: {
-//         if (isActive) {
-//             currentTitle.text = pageData.name;
-//             currentTitle.y = 0;
-//             currentTitle.opacity = 1.0;
-//             incomingTitle.opacity = 0.0;
-//         }
-//     }
-//
-//     // 1. Outgoing Title Text
-//     Text {
-//         id: currentTitle
-//         text: pageData.name
-//         color: "#ffffff"
-//         font.pixelSize: 28
-//         font.weight: Font.DemiBold
-//         y: 0
-//         opacity: 1.0
-//     }
-//
-//     // 2. Incoming Title Text (slides up from below)
-//     Text {
-//         id: incomingTitle
-//         text: pageData.name
-//         color: "#ffffff"
-//         font.pixelSize: 28
-//         font.weight: Font.DemiBold
-//         y: 28
-//         opacity: 0.0
-//     }
-//
-//     SequentialAnimation {
-//         id: titleSlideAnim
-//
-//         ParallelAnimation {
-//             // Old title moves up and fades out
-//             NumberAnimation {
-//                 target: currentTitle
-//                 property: "y"
-//                 to: -28
-//                 duration: 250
-//                 easing.type: Easing.OutCubic
-//             }
-//             NumberAnimation {
-//                 target: currentTitle
-//                 property: "opacity"
-//                 to: 0.0
-//                 duration: 200
-//                 easing.type: Easing.OutCubic
-//             }
-//
-//             // New title slides up into place and fades in
-//             NumberAnimation {
-//                 target: incomingTitle
-//                 property: "y"
-//                 to: 0
-//                 duration: 250
-//                 easing.type: Easing.OutCubic
-//             }
-//             NumberAnimation {
-//                 target: incomingTitle
-//                 property: "opacity"
-//                 to: 1.0
-//                 duration: 220
-//                 easing.type: Easing.OutCubic
-//             }
-//         }
-//
-//         // Clean up and sync roles instantly when animation finishes
-//         ScriptAction {
-//             script: {
-//                 currentTitle.text = incomingTitle.text;
-//                 currentTitle.y = 0;
-//                 currentTitle.opacity = 1.0;
-//                 incomingTitle.opacity = 0.0;
-//                 incomingTitle.y = 28;
-//             }
-//         }
-//     }
-// }
 
-                            // Dynamic Sections
 Repeater {
     model: pageData.sections
 
@@ -842,7 +688,6 @@ Repeater {
         Layout.fillWidth: true
         spacing: 12
 
-        // Section Title with Entry Animation
         Text {
             id: sectionTitle
             text: sectionData.title
@@ -851,36 +696,46 @@ Repeater {
             font.weight: Font.Medium
             Layout.bottomMargin: 4
 
-            opacity: 0
-            scale: 0.82
-            transformOrigin: Item.Center
-            transform: Translate { id: titleTranslation; y: 20 }
 
-            function playEntry() {
-                sectionTitle.opacity = 0
-                sectionTitle.scale = 0.82
-                titleTranslation.y = 20
-                titleAnim.restart()
-            }
+    opacity: 0
+    scale: 0.82
+    transformOrigin: Item.Center
+    transform: Translate { id: titleTranslation; y: 20 }
 
-            Connections {
-                target: settingsWindow
-                function onVisibleChanged() {
-                    if (settingsWindow.visible) sectionTitle.playEntry()
-                }
-            function onSelectedPageChanged() {
-              if (settingsWindow.visible) sectionTitle.playEntry();
-            }
-            }
+    function playEntry() {
+        sectionTitle.opacity = 0
+        sectionTitle.scale = 0.82
+        titleTranslation.y = 20
+        titleAnim.restart()
+    }
 
-            Component.onCompleted: {
-                if (settingsWindow.visible) sectionTitle.playEntry()
-            }
+    function snapToFinal() {
+        sectionTitle.opacity = 1.0
+        sectionTitle.scale = 1.0
+        titleTranslation.y = 0
+    }
+
+    Connections {
+        target: settingsWindow
+        function onVisibleChanged() {
+            if (settingsWindow.visible && settingsWindow.selectedPage === pageIndex)
+                sectionTitle.playEntry()
+        }
+        function onSelectedPageChanged() {
+            if (settingsWindow.visible && settingsWindow.selectedPage === pageIndex)
+                sectionTitle.playEntry()
+        }
+    }
+
+    Component.onCompleted: {
+        if (settingsWindow.visible && settingsWindow.selectedPage === pageIndex)
+            sectionTitle.snapToFinal()
+    }
+
 
             SequentialAnimation {
                 id: titleAnim
                 PauseAnimation {
-                    // Stagger based on section index
                     duration: 120 + (sectionLayout.index * 70)
                 }
                 ParallelAnimation {
@@ -891,7 +746,6 @@ Repeater {
             }
         }
 
-        // Dynamic Setting Cards Repeater
         Repeater {
             model: sectionData.items
 
@@ -916,34 +770,49 @@ delegate: SettingCard {
         cardAnim.restart()
     }
 
-    // Wrap non-visual elements inside an Item to satisfy SettingCard's QQuickItem requirement
-    Item {
-        Connections {
-            target: settingsWindow
-            function onVisibleChanged() {
-                if (settingsWindow.visible) card.playEntry();
-            }
-            function onSelectedPageChanged() {
-              if (settingsWindow.visible) card.playEntry();
-            }
-        }
+Item {
+    function playEntry() {
+        card.opacity = 0
+        card.scale = 0.82
+        cardTranslation.y = 20
+        cardAnim.restart()
+    }
 
-        Component.onCompleted: {
-            if (settingsWindow.visible) card.playEntry()
-        }
+    function snapToFinal() {
+        card.opacity = 1.0
+        card.scale = 1.0
+        cardTranslation.y = 0
+    }
 
-        SequentialAnimation {
-            id: cardAnim
-            PauseAnimation {
-                duration: 120 + (sectionLayout.index * 70) + ((card.index + 1) * 45)
-            }
-            ParallelAnimation {
-                NumberAnimation { target: card; property: "opacity"; to: 1.0; duration: 280; easing.type: Easing.OutCubic }
-                NumberAnimation { target: card; property: "scale"; to: 1.0; duration: 350; easing.type: Easing.OutBack; easing.overshoot: 1.5 }
-                NumberAnimation { target: cardTranslation; property: "y"; to: 0; duration: 380; easing.type: Easing.OutBack; easing.overshoot: 2 }
-            }
+    Connections {
+        target: settingsWindow
+        function onVisibleChanged() {
+            if (settingsWindow.visible && settingsWindow.selectedPage === pageIndex)
+                playEntry()
+        }
+        function onSelectedPageChanged() {
+            if (settingsWindow.visible && settingsWindow.selectedPage === pageIndex)
+                playEntry()
         }
     }
+
+    Component.onCompleted: {
+        if (settingsWindow.visible && settingsWindow.selectedPage === pageIndex)
+            snapToFinal()
+    }
+
+    SequentialAnimation {
+        id: cardAnim
+        PauseAnimation {
+            duration: 120 + (sectionLayout.index * 70) + ((card.index + 1) * 45)
+        }
+        ParallelAnimation {
+            NumberAnimation { target: card; property: "opacity"; to: 1.0; duration: 280; easing.type: Easing.OutCubic }
+            NumberAnimation { target: card; property: "scale"; to: 1.0; duration: 350; easing.type: Easing.OutBack; easing.overshoot: 1.5 }
+            NumberAnimation { target: cardTranslation; property: "y"; to: 0; duration: 380; easing.type: Easing.OutBack; easing.overshoot: 2 }
+        }
+    }
+}
 
 Loader {
         id: controlLoader
@@ -951,10 +820,6 @@ Loader {
         anchors.rightMargin: 12
         anchors.verticalCenter: parent.verticalCenter
         
-        // Give the loader explicit bounds so the TextField respects maximum width and height
-        // width: 300
-        // height: 32
-
         sourceComponent: {
             if (!card.itemData || !card.itemData.type) return null;
             
@@ -1058,8 +923,8 @@ Loader {
             x: control.leftPadding
             y: parent.height / 2 - height / 2
             radius: 12
-            color: control.checked ? "#11389F" : "#101010" // "#3a3a3a"
-            border.color: control.checked ? "#11389F" : "#101010" // "#555555"
+            color: control.checked ? "#11389F" : "#101010"
+            border.color: control.checked ? "#11389F" : "#101010"
             border.width: control.checked ? 0 : 1
 
             Behavior on color {
